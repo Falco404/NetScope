@@ -226,3 +226,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Hermes desktop app writes a project-idea file into every project folder
+IDEA.md
