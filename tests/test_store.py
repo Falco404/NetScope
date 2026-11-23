@@ -24,7 +24,7 @@ def scan_single_host(ip: str, port: int) -> ScanResult:
     xml = (
         f'<nmaprun><host><status state="up"/><address addr="{ip}" addrtype="ipv4"/>'
         f'<hostname name="{ip}" type="PTR"/>'
-        f'<ports><port protocol="tcp" port="{port}">'
+        f'<ports><port protocol="tcp" portid="{port}">'
         f'<state state="open"/></port></ports></host></nmaprun>'
     )
     return parse_nmap_xml(xml, "192.168.1.0/24")

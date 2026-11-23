@@ -32,6 +32,15 @@ Env vars (all optional): `NETSCOPE_DB` (database path, default `netscope.db`),
 `NETSCOPE_PORT` (default 8000), `NETSCOPE_NMAP_TIMEOUT` (seconds per nmap
 pass, default 300 — a `/24` with mostly silent hosts can take minutes).
 
+### Does the scan need admin PowerShell?
+
+**Unverified — remembered for later.** The first real scan on Atlas was run
+from an **admin** PowerShell and took ~290 s for `192.168.0.0/24`. nmap can use
+ARP for discovery only when it has raw-socket privileges, so a *normal*
+PowerShell may discover fewer hosts and take longer. Nobody has compared the
+two yet: if a scan misses devices, retry from an admin PowerShell before
+blaming NetScope, and record the result here when someone actually tests it.
+
 ## Rules
 
 See `AGENTS.md`. Scanning is restricted to RFC1918 ranges in code; config
