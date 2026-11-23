@@ -6,6 +6,7 @@ shown in a clean GUI.
 
 ## Rules
 - Pull main before starting any work.
+- Every PR description must have: (1) a plain-language summary of what changed and why, (2) how I can try it myself, with exact commands for Windows, (3) the test results you actually ran (paste the output), (4) anything you're unsure about or decided on your own.
 - Never push to main. Work on branches named `hermes/<topic>` and open a PR.
 - Small PRs, one feature each, with tests.
 - Scanning is only allowed against private ranges (10.x, 172.16-31.x,
