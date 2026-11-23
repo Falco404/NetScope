@@ -100,7 +100,10 @@ function pollStatus() {
       $("scan-btn").disabled = false;
       return;
     }
-    $("scan-status").textContent = `${s.state}${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}`;
+    const limit = s.timeout_seconds ? ` / ${s.timeout_seconds}s limit per pass` : "";
+    $("scan-status").textContent =
+      `${s.state}${s.elapsed_seconds ? ` — ${s.elapsed_seconds}s${limit}` : ""}` +
+      `${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}`;
     $("progress-bar").style.width = s.state === "running" ? "60%" : s.state === "done" ? "100%" : "0";
     if (s.state === "running") {
       setTimeout(poll, 1000);

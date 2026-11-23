@@ -133,6 +133,22 @@ def test_runner_failure_surfaces_error_message(tmp_path):
     store.close()
 
 
+def test_status_reports_elapsed_and_limit(tmp_path):
+    block = threading.Event()
+    client, api, store = make_client(tmp_path, block=block)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    running = client.get("/api/scan/status").json()
+    assert running["state"] == "running"
+    assert running["elapsed_seconds"] is not None and running["elapsed_seconds"] >= 0
+    # Fake runner has no timeout attribute -> the limit is unknown (null),
+    # which the UI omits instead of inventing a number.
+    assert running["timeout_seconds"] is None
+    block.set()
+    assert wait_done(api)["state"] == "done"
+    assert client.get("/api/scan/status").json()["elapsed_seconds"] is None
+    store.close()
+
+
 def test_busy_scan_returns_409(tmp_path):
     block = threading.Event()
     client, api, store = make_client(tmp_path, block=block)

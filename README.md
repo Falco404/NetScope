@@ -29,7 +29,8 @@ uv run python -m netscope        # http://127.0.0.1:8000
 
 Env vars (all optional): `NETSCOPE_DB` (database path, default `netscope.db`),
 `NETSCOPE_HOST` (default `127.0.0.1`; set `0.0.0.0` to expose on the LAN),
-`NETSCOPE_PORT` (default 8000).
+`NETSCOPE_PORT` (default 8000), `NETSCOPE_NMAP_TIMEOUT` (seconds per nmap
+pass, default 300 — a `/24` with mostly silent hosts can take minutes).
 
 ## Rules
 

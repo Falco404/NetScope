@@ -19,8 +19,9 @@ def main() -> None:
     host = os.environ.get("NETSCOPE_HOST", "127.0.0.1")
     port = int(os.environ.get("NETSCOPE_PORT", "8000"))
     store = SQLiteStore()
-    api = NetScopeAPI(store, NmapScanner(SubprocessNmapRunner()))
-    print(f"NetScope on http://{host}:{port}  (db: {store.path})")
+    timeout = float(os.environ.get("NETSCOPE_NMAP_TIMEOUT", "300"))
+    api = NetScopeAPI(store, NmapScanner(SubprocessNmapRunner(timeout=timeout)))
+    print(f"NetScope on http://{host}:{port}  (db: {store.path}, nmap timeout: {timeout}s)")
     uvicorn.run(build_app(api), host=host, port=port, log_level="info")
 
 

@@ -36,6 +36,7 @@ class ScanJob:
     scan_id: int | None = None
     error: str | None = None
     duration_seconds: float | None = None
+    started_at: float | None = None
 
 
 class ScanRequest(BaseModel):
@@ -64,7 +65,7 @@ class NetScopeAPI:
         with self._lock:
             if self.job.state == "running":
                 raise HTTPException(status_code=409, detail="a scan is already running")
-            self.job = ScanJob(state="running", target=str(net))
+            self.job = ScanJob(state="running", target=str(net), started_at=time.monotonic())
         thread = threading.Thread(target=self._run_scan, args=(str(net),), daemon=True)
         thread.start()
         return self.job
@@ -91,6 +92,11 @@ class NetScopeAPI:
 
     def status(self) -> dict[str, Any]:
         with self._lock:
+            elapsed = (
+                round(time.monotonic() - self.job.started_at, 1)
+                if self.job.state == "running" and self.job.started_at is not None
+                else None
+            )
             return {
                 "state": self.job.state,
                 "target": self.job.target,
@@ -98,6 +104,9 @@ class NetScopeAPI:
                 "scan_id": self.job.scan_id,
                 "error": self.job.error,
                 "duration_seconds": self.job.duration_seconds,
+                "elapsed_seconds": elapsed,
+                # Per nmap call limit; the scan runs two passes (discovery, services).
+                "timeout_seconds": getattr(self.scanner.runner, "timeout", None),
             }
 
 
