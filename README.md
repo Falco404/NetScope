@@ -6,18 +6,31 @@ in a web UI.
 
 ## Status
 
-M1 — project skeleton. Scanner, store and web UI land in M2–M6
-(see `docs/architecture.md` and the milestone issues).
+M1–M6 done: target guard, scanner core (nmap behind an interface), device
+model, SQLite store, and the web UI. M7 (lab integration pass) is open.
+See `docs/architecture.md` and the milestone issues.
 
 ## Setup
 
 ```bash
-uv sync            # installs the project + dev tools (pytest, ruff)
+uv sync            # installs the project + dev tools (pytest, ruff, httpx)
 uv run pytest      # run tests
 uv run ruff check  # lint
 ```
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). `nmap` must be
+installed for real scans (`apt install nmap`, or on Windows: winget / nmap.org).
+
+## Run the web UI
+
+```bash
+uv run python -m netscope        # http://127.0.0.1:8000
+```
+
+Env vars (all optional): `NETSCOPE_DB` (database path, default `netscope.db`),
+`NETSCOPE_HOST` (default `127.0.0.1`; set `0.0.0.0` to expose on the LAN),
+`NETSCOPE_PORT` (default 8000), `NETSCOPE_NMAP_TIMEOUT` (seconds per nmap
+pass, default 300 — a `/24` with mostly silent hosts can take minutes).
 
 ## Rules
 

@@ -71,7 +71,9 @@ class ScanDiff:
 class SQLiteStore:
     def __init__(self, path: str | None = None) -> None:
         self.path = path or db_path()
-        self.conn = sqlite3.connect(self.path)
+        # The API runs scans in a background thread that writes here, so the
+        # connection is shared across threads (SQLite serializes internally).
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.execute("PRAGMA foreign_keys = ON")
         if self.conn.execute("PRAGMA user_version").fetchone()[0] == 0:
             self.conn.executescript(_SCHEMA)
@@ -192,6 +194,16 @@ class SQLiteStore:
         for identity, port, protocol in rows:
             out.setdefault(identity, set()).add((port, protocol))
         return {k: frozenset(v) for k, v in out.items()}
+
+    def port_history(self, identity: str) -> list[tuple[int, int, str, str | None, str | None]]:
+        """(scan_id, port, protocol, service, version) rows for one device, newest scan first."""
+        return self.conn.execute(
+            """
+            SELECT scan_id, port, protocol, service, version
+            FROM device_ports WHERE identity = ? ORDER BY scan_id DESC, port
+            """,
+            (identity,),
+        ).fetchall()
 
     def diff_scans(self, a_id: int, b_id: int) -> ScanDiff:
         a = self.scan_ports(a_id)

@@ -26,12 +26,21 @@ class SubprocessNmapRunner:
         self.timeout = timeout
 
     def run(self, args: list[str]) -> str:
-        proc = subprocess.run(
-            [self.binary, *args],
-            capture_output=True,
-            text=True,
-            timeout=self.timeout,
-        )
+        try:
+            proc = subprocess.run(
+                [self.binary, *args],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+            )
+        except FileNotFoundError:
+            # Surfaced as the scan error in the UI, so make it actionable.
+            raise RuntimeError(
+                f"nmap binary '{self.binary}' not found — install it "
+                "(Linux/WSL: apt install nmap; Windows: winget install nmap)"
+            ) from None
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"nmap timed out after {self.timeout}s") from None
         if proc.returncode != 0:
             raise RuntimeError(f"nmap failed (exit {proc.returncode}): {proc.stderr.strip()}")
         return proc.stdout
