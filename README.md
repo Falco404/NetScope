@@ -44,4 +44,6 @@ once PR #18's note lands on main).
 ## Rules
 
 See `AGENTS.md`. Scanning is restricted to RFC1918 ranges in code; config
-goes in env vars or gitignored files; no secrets in the repo.
+goes in env vars or gitignored files; no secrets in the repo. Current state:
+`docs/STATUS.md`. Decisions: `docs/decisions.md`. Gotchas worth knowing before
+touching nmap or the tests: `docs/gotchas.md`.
