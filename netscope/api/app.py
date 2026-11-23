@@ -45,6 +45,10 @@ class ScanRequest(BaseModel):
     target: str
 
 
+class DeviceNameRequest(BaseModel):
+    name: str
+
+
 class NetScopeAPI:
     """Owns the store, the scanner and one scan job; build_app() exposes it."""
 
@@ -149,6 +153,7 @@ def build_app(api: NetScopeAPI) -> FastAPI:
                     "identity": d.identity,
                     "ip": d.ip,
                     "name": d.display_name,
+                    "manual_name": d.name,
                     "hostname": d.hostname,
                     "vendor": d.vendor,
                     "os_guess": d.os_guess,
@@ -171,6 +176,7 @@ def build_app(api: NetScopeAPI) -> FastAPI:
             "identity": device.identity,
             "ip": device.ip,
             "name": device.display_name,
+            "manual_name": device.name,
             "hostname": device.hostname,
             "mac": device.mac,
             "vendor": device.vendor,
@@ -188,6 +194,25 @@ def build_app(api: NetScopeAPI) -> FastAPI:
                 for r in rows
             ],
         }
+
+    @app.put("/api/devices/{identity}/name")
+    def set_device_name(identity: str, req: DeviceNameRequest) -> dict[str, Any]:
+        # Manual label (M8): survives later scans and beats hostname/vendor.
+        try:
+            name = api.store.set_device_name(identity, req.name)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="unknown device") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"identity": identity, "name": name}
+
+    @app.delete("/api/devices/{identity}/name")
+    def clear_device_name(identity: str) -> dict[str, Any]:
+        try:
+            api.store.clear_device_name(identity)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="unknown device") from exc
+        return {"identity": identity, "name": None}
 
     @app.get("/api/diff")
     def diff(from_id: int | None = None, to_id: int | None = None) -> dict[str, Any]:

@@ -64,3 +64,6 @@ li.changed::before { content: "~ "; color: var(--warn); }
 dl { display: grid; grid-template-columns: 120px 1fr; gap: 0.3rem 0.8rem; margin: 0.5rem 0 1rem; }
 dt { color: var(--muted); }
 dd { margin: 0; font-family: ui-monospace, monospace; font-size: 0.9rem; }
+.name-edit { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.5rem 0 1rem; }
+.name-edit input { min-width: 220px; }
+#name-status { color: var(--muted); font-size: 0.85rem; }
