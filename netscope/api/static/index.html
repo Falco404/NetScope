@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetScope</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>NetScope</h1>
+    <p class="sub">Local network map — private ranges only</p>
+  </header>
+
+  <section class="scan-controls">
+    <label for="target">Target subnet</label>
+    <input id="target" type="text" value="192.168.1.0/24" spellcheck="false">
+    <button id="scan-btn">Scan</button>
+    <div class="progress"><div id="progress-bar"></div></div>
+    <span id="scan-status">idle</span>
+  </section>
+
+  <section>
+    <h2>Devices</h2>
+    <table id="devices">
+      <thead>
+        <tr>
+          <th data-sort="name">Name</th>
+          <th data-sort="ip">IP</th>
+          <th data-sort="status">Status</th>
+          <th data-sort="os_guess">OS</th>
+          <th data-sort="vendor">Vendor</th>
+          <th data-sort="ports">Open ports</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Changes since previous scan</h2>
+    <ul id="changes"><li class="empty">No scans yet.</li></ul>
+  </section>
+
+  <section>
+    <h2>Scan history</h2>
+    <ul id="scans"><li class="empty">No scans yet.</li></ul>
+  </section>
+
+  <aside id="detail" hidden>
+    <h2 id="detail-title"></h2>
+    <dl id="detail-fields"></dl>
+    <table id="detail-ports">
+      <thead><tr><th>Scan</th><th>Port</th><th>Proto</th><th>Service</th><th>Version</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button id="detail-close">Close</button>
+  </aside>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
