@@ -39,6 +39,11 @@ def parse_nmap_xml(xml_text: str, target: str) -> ScanResult:
 
         ports: list[PortResult] = []
         for port_el in host.findall("ports/port"):
+            # REAL nmap writes the port number as `portid` (not `port`); reading
+            # the wrong attribute silently yields 0 for every port.
+            portid = port_el.get("portid")
+            if portid is None:
+                continue  # no usable port number -> not a port sighting
             proto = port_el.get("protocol", "")
             state_el = port_el.find("state")
             state = (state_el.get("state") if state_el is not None else None) or "unknown"
@@ -46,7 +51,7 @@ def parse_nmap_xml(xml_text: str, target: str) -> ScanResult:
             version = service_el.get("version") if service_el is not None else None
             ports.append(
                 PortResult(
-                    port=int(port_el.get("port", "0")),
+                    port=int(portid),
                     protocol=proto,
                     state=state,
                     service=service_el.get("name") if service_el is not None else None,
