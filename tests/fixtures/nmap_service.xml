@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sV -oX - 192.168.1.10 192.168.1.20" start="1764250021" finish="1764250060" version="7.95">
+  <host>
+    <status state="up" reason="arp-response" reason_ttl="0"/>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <address addr="AA:BB:CC:DD:EE:01" addrtype="mac" vendor="MicroStar Intl"/>
+    <hostname name="atom" type="PTR"/>
+    <os>
+      <osclass type="linux" vendor="Linux" osfamily="Linux" osgen="2.6.x" scanmethods="SYN,FIN,NULL" target="Linux 2.6.32 - 3.x"/>
+    </os>
+    <ports>
+      <port protocol="tcp" port="22">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="ssh" product="OpenSSH" version="8.4p1 Debian" extrainfo="protocol 2.0" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" port="80">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="http" product="nginx" version="1.22.1" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" port="443">
+        <state state="closed" reason="tcp-reset" reason_ttl="64"/>
+        <service name="http" method="table" conf="3"/>
+      </port>
+    </ports>
+  </host>
+  <host>
+    <status state="up" reason="echo-reply" reason_ttl="64"/>
+    <address addr="192.168.1.20" addrtype="ipv4"/>
+    <hostname name="apollo" type="PTR"/>
+    <ports>
+      <port protocol="tcp" port="53">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>
