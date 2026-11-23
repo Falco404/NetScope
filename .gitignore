@@ -153,6 +153,11 @@ activemq-data/
 .env
 .envrc
 .venv
+.pytest_cache/
+# NetScope runtime data (SQLite db, gitignored per AGENTS.md)
+netscope.db
+*.db
+data/
 env/
 venv/
 ENV/
