@@ -65,7 +65,7 @@ macOS. Settings are env vars, all optional:
 | `NETSCOPE_NMAP_TIMEOUT` | `300` | Seconds per nmap pass; a `/24` with silent hosts can take minutes |
 
 On Windows PowerShell: `$env:NETSCOPE_PORT = "8000"` before the run command.
-On Linux: `NETSCOPE_PORT=8000 uv run python -m netscope`.
+On Linux or macOS (bash/zsh): `NETSCOPE_PORT=8000 uv run python -m netscope`.
 
 Without admin/root, scans work but the **OS column stays empty** (`nmap -O`
 needs raw-socket privileges). On Linux and macOS, run the same command with
