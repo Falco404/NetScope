@@ -23,12 +23,16 @@ class Device:
     mac: str | None = None
     vendor: str | None = None
     os_guess: str | None = None
+    name: str | None = None  # manual label from the UI (M8), set outside scans
     open_ports: tuple[PortResult, ...] = ()
     last_seen_scan: int | None = None  # scan id, filled by the store (M5)
 
     @property
     def display_name(self) -> str:
-        """Best human label: hostname first, then vendor+model-ish, then IP."""
+        """Best human label: manual name first (deliberate), then hostname,
+        then vendor+IP, then bare IP."""
+        if self.name:
+            return self.name
         if self.hostname:
             return self.hostname
         if self.vendor:

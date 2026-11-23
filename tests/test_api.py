@@ -95,6 +95,42 @@ def test_scan_flow_and_devices(tmp_path):
     store.close()
 
 
+def test_manual_name_roundtrip(tmp_path):
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    wait_done(api)
+    identity = "AA:BB:CC:DD:EE:01"
+
+    res = client.put(f"/api/devices/{identity}/name", json={"name": "Atom homeserver"})
+    assert res.status_code == 200
+    assert res.json() == {"identity": identity, "name": "Atom homeserver"}
+
+    devices = client.get("/api/devices").json()
+    atom = next(d for d in devices if d["identity"] == identity)
+    assert atom["name"] == "Atom homeserver"  # list shows the manual label
+    assert atom["manual_name"] == "Atom homeserver"
+    assert atom["hostname"] == "atom"  # scan-learned hostname still there
+
+    detail = client.get(f"/api/devices/{identity}").json()
+    assert detail["name"] == "Atom homeserver"
+    assert detail["manual_name"] == "Atom homeserver"
+
+    # Overwrite, then run another scan: the manual label survives.
+    client.put(f"/api/devices/{identity}/name", json={"name": "atom-server"})
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    wait_done(api)
+    assert client.get(f"/api/devices/{identity}").json()["name"] == "atom-server"
+
+    res = client.delete(f"/api/devices/{identity}/name")
+    assert res.status_code == 200
+    assert client.get(f"/api/devices/{identity}").json()["name"] == "atom"  # fallback
+
+    assert client.put("/api/devices/no-such-device/name", json={"name": "x"}).status_code == 404
+    assert client.delete("/api/devices/no-such-device/name").status_code == 404
+    assert client.put(f"/api/devices/{identity}/name", json={"name": "   "}).status_code == 400
+    store.close()
+
+
 def test_second_scan_diff(tmp_path):
     client, api, store = make_client(tmp_path)
     client.post("/api/scan", json={"target": "192.168.1.0/24"})

@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 let devices = [];
 let sortKey = "name";
 let sortAsc = true;
+let detailIdentity = null;
 
 async function api(path, options) {
   const res = await fetch(path, options);
@@ -61,6 +62,7 @@ async function loadAll() {
 
 async function openDetail(identity) {
   const d = await api(`/api/devices/${encodeURIComponent(identity)}`);
+  detailIdentity = identity;
   $("detail").hidden = false;
   $("detail-title").textContent = d.name;
   $("detail-fields").innerHTML = [
@@ -71,9 +73,40 @@ async function openDetail(identity) {
     ["OS guess", d.os_guess ?? ""],
     ["Last seen", d.last_seen_scan ?? ""],
   ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  // Manual name (M8): editable label that beats hostname/vendor in the list.
+  $("detail-name").value = d.manual_name ?? "";
+  $("name-status").textContent = "";
   $("detail-ports").querySelector("tbody").innerHTML = d.ports.length
     ? d.ports.map((p) => `<tr><td>${p.scan_id}</td><td>${p.port}</td><td>${p.protocol}</td><td>${p.service ?? ""}</td><td>${p.version ?? ""}</td></tr>`).join("")
     : '<tr><td colspan="5" class="empty">No open ports recorded.</td></tr>';
+}
+
+async function saveName() {
+  if (!detailIdentity) return;
+  try {
+    await api(`/api/devices/${encodeURIComponent(detailIdentity)}/name`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: $("detail-name").value }),
+    });
+    $("name-status").textContent = "saved";
+    await loadAll();
+    await openDetail(detailIdentity);
+  } catch (e) {
+    $("name-status").textContent = e.message;
+  }
+}
+
+async function clearName() {
+  if (!detailIdentity) return;
+  try {
+    await api(`/api/devices/${encodeURIComponent(detailIdentity)}/name`, { method: "DELETE" });
+    $("name-status").textContent = "cleared";
+    await loadAll();
+    await openDetail(detailIdentity);
+  } catch (e) {
+    $("name-status").textContent = e.message;
+  }
 }
 
 async function startScan() {
@@ -133,6 +166,8 @@ async function prefillTarget() {
 
 $("scan-btn").addEventListener("click", startScan);
 $("detail-close").addEventListener("click", () => { $("detail").hidden = true; });
+$("name-save").addEventListener("click", saveName);
+$("name-clear").addEventListener("click", clearName);
 document.querySelectorAll("#devices th[data-sort]").forEach((th) => {
   th.addEventListener("click", () => {
     const key = th.dataset.sort === "ports" ? "ports" : th.dataset.sort;

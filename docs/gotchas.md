@@ -11,12 +11,12 @@ Written for the next session. Each one cost real debugging time.
 - **`nmap` is not installed in the Hermes container.** Real scans only run on the Windows PC (`winget install nmap`) or on Apollo. Missing binary surfaces as the UI error line now, not a crash.
 - **Discovery needs privileges for ARP.** Whether admin PowerShell is *required* is **unverified**: only admin has been tested (~290 s for `192.168.0.0/24`). README records this.
 - **A `/24` is slow because silent addresses must time out.** ~290 s observed with 10 live hosts. The timeout is **per nmap pass** (`NETSCOPE_NMAP_TIMEOUT`, default 300 s) and there are two passes, so worst case ≈ 10 min before it errors with `nmap timed out after 300s`.
-- **No hostnames from the router.** Reverse DNS is unanswered on the home LAN, so devices show bare IPs plus vendor. NetBIOS/ARP-alias fallback is the M8 plan.
+- **No hostnames from the router.** Reverse DNS is unanswered on the home LAN, so devices show bare IPs plus vendor. M8 (#23) solved this with a **manual `device_names` table**: `display_name` priority is manual name → hostname → vendor+IP → bare IP; names live in their own table, are never touched by scans, and survive a v1→v2 schema upgrade (`PRAGMA user_version = 2`).
 
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Networking of this agent container

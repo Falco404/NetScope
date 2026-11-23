@@ -50,6 +50,13 @@
   <aside id="detail" hidden>
     <h2 id="detail-title"></h2>
     <dl id="detail-fields"></dl>
+    <div class="name-edit">
+      <label for="detail-name">Manual name</label>
+      <input id="detail-name" type="text" maxlength="64" placeholder="e.g. Atom homeserver" spellcheck="false">
+      <button id="name-save">Save</button>
+      <button id="name-clear">Clear</button>
+      <span id="name-status"></span>
+    </div>
     <table id="detail-ports">
       <thead><tr><th>Scan</th><th>Port</th><th>Proto</th><th>Service</th><th>Version</th></tr></thead>
       <tbody></tbody>

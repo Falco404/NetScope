@@ -3,8 +3,9 @@
 ## Summary
 NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
 service versions and vendor in a web UI (FastAPI + static vanilla JS). All
-seven milestones (M1–M7) are merged to `main`; 78 tests pass, ruff clean.
-The tool has produced one real scan of the home LAN (`192.168.0.0/24`).
+eight milestones (M1–M8) are merged or in PR; 83 tests pass, ruff clean.
+The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
+latest one is recorded as acceptance evidence on issue #10.
 
 ## Done
 - **M1 scaffolding** (#12, `01d2ebb`): uv project, pytest, ruff, GitHub Actions CI (3.12/3.13), docs seed.
@@ -14,16 +15,16 @@ The tool has produced one real scan of the home LAN (`192.168.0.0/24`).
 - **M5 SQLite store** (#16): `scans` / `devices` / `device_ports`, `PRAGMA user_version = 1`, COALESCE upsert, `diff_scans()`.
 - **M6 web app** (#17): API (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`, `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`) + static UI, one scan at a time (409), error surfaced in UI, `elapsed_seconds`/`timeout_seconds`, `NETSCOPE_NMAP_TIMEOUT`.
 - **Fix: real port numbers** (#18): parser reads nmap's `portid` attribute (was reading a non-existent `port` attribute, so every port showed as `0/tcp`); fixtures corrected; regression test added.
-- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`.
-- First real scan on the LAN: 10 devices found, vendors resolved for Chromecast / TV / KVM; issue #10 closed by Falco.
+- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`. **Acceptance evidence recorded** 2026-11-23: re-scan of `192.168.0.0/24` shows real port numbers (no `0/tcp`), vendors for Chromecast/TV/KVM, 11 devices — posted to issue #10 (comment 7108419834). Hostnames/OS still empty (no PTR; `-O` needs raw-socket privileges).
+- **M8 device naming** (PR on `hermes/device-naming`, closes #23): manual `device_names` table (schema v2, v1 DBs upgraded in place), `PUT`/`DELETE /api/devices/<identity>/name`, editable name field in the device detail UI; manual name beats hostname/vendor/IP in the list and survives later scans.
 
 ## In progress
-- This handoff PR only (docs updates). No feature work is in flight; working tree clean.
+- The M8 PR only. No other feature work is in flight; working tree clean on the branch.
 
 ## Next steps (in order)
-1. Re-run a scan on `192.168.0.0/24` after #18/#19 and record what the UI shows: real port numbers, OS column, hostname column. Paste the output into issue #10's follow-up (issue #23 if created) — no evidence has been recorded yet.
-2. **M8 — device identification fallbacks**: the router answers no reverse DNS, so devices show as bare IPs. Add ARP alias / NetBIOS (`nmap --script broadcast-nbname`) or a hostname field from the ARP table so Atom and Apollo can be recognised by name, not guessed from vendor.
-3. Decide whether `0.0.0.0` binding + any auth is wanted (UI currently has none; localhost-only by default).
+1. Name Atom, Apollo, the router etc. in the UI once M8 merges, and re-scan to confirm the labels show in the device list.
+2. Decide whether `0.0.0.0` binding + any auth is wanted (UI currently has none; localhost-only by default).
+3. Optional later: `nmap --script broadcast-nbname` as auto-fill for Windows hosts (manual names stay authoritative).
 4. Docs finalization: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas

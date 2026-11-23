@@ -43,9 +43,81 @@ def test_schema_created_and_versioned(tmp_path):
     import sqlite3
 
     conn = sqlite3.connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"scans", "devices", "device_ports"} <= tables
+    assert {"scans", "devices", "device_ports", "device_names"} <= tables
+
+
+def test_v1_database_is_upgraded_in_place(tmp_path):
+    """Schema v1 databases gain the device_names table without losing rows."""
+    path = tmp_path / "old.db"
+    import sqlite3
+
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE scans (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,
+            target TEXT NOT NULL, duration_seconds REAL);
+        CREATE TABLE devices (identity TEXT PRIMARY KEY, ip TEXT NOT NULL, hostname TEXT,
+            mac TEXT, vendor TEXT, os_guess TEXT, last_seen_scan INTEGER NOT NULL);
+        CREATE TABLE device_ports (scan_id INTEGER NOT NULL REFERENCES scans(id),
+            identity TEXT NOT NULL REFERENCES devices(identity), ip TEXT NOT NULL,
+            port INTEGER NOT NULL, protocol TEXT NOT NULL, service TEXT, version TEXT);
+        CREATE INDEX idx_device_ports_scan ON device_ports(scan_id);
+        INSERT INTO devices (identity, ip, hostname, last_seen_scan)
+        VALUES ('192.168.1.5', '192.168.1.5', 'oldbox', 1);
+        """
+    )
+    conn.execute("PRAGMA user_version = 1")
+    conn.commit()
+    conn.close()
+
+    with SQLiteStore(path) as s:
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert s.load_devices()[0].identity == "192.168.1.5"  # old row survives
+        assert s.set_device_name("192.168.1.5", "Renamed box") == "Renamed box"
+        assert s.load_devices()[0].display_name == "Renamed box"
+
+
+def test_manual_name_beats_hostname_and_survives_scans(store):
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    identity = "AA:BB:CC:DD:EE:01"
+    assert store.set_device_name(identity, "Atom homeserver") == "Atom homeserver"
+
+    atom = next(d for d in store.load_devices() if d.identity == identity)
+    assert atom.hostname == "atom"  # scan-learned hostname untouched
+    assert atom.name == "Atom homeserver"
+    assert atom.display_name == "Atom homeserver"
+
+    # A later scan must not overwrite the manual label.
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS2)
+    atom = next(d for d in store.load_devices() if d.identity == identity)
+    assert atom.name == "Atom homeserver"
+    assert atom.display_name == "Atom homeserver"
+
+
+def test_clear_device_name_falls_back_to_hostname(store):
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    identity = "AA:BB:CC:DD:EE:01"
+    store.set_device_name(identity, "Atom homeserver")
+    store.clear_device_name(identity)
+    atom = next(d for d in store.load_devices() if d.identity == identity)
+    assert atom.name is None
+    assert atom.display_name == "atom"
+
+
+def test_device_name_validation(store):
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    identity = "AA:BB:CC:DD:EE:01"
+    with pytest.raises(ValueError):
+        store.set_device_name(identity, "   ")
+    with pytest.raises(ValueError):
+        store.set_device_name(identity, "x" * 65)
+    with pytest.raises(KeyError):
+        store.set_device_name("AA:BB:CC:DD:EE:99", "ghost")
+    with pytest.raises(KeyError):
+        store.clear_device_name("AA:BB:CC:DD:EE:99")
+    assert store.set_device_name(identity, "  Atom  ") == "Atom"  # stored stripped
 
 
 def test_save_load_roundtrip(store):

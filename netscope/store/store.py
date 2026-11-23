@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from netscope.device import Device, merge_scan
 from netscope.scanner.models import ScanResult
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_DB_PATH = "netscope.db"
 
 _SCHEMA = """
@@ -34,6 +34,10 @@ CREATE TABLE devices (
     os_guess TEXT,
     last_seen_scan INTEGER NOT NULL
 );
+CREATE TABLE device_names (
+    identity TEXT PRIMARY KEY REFERENCES devices(identity),
+    name TEXT NOT NULL              -- manual label set in the UI, beats any scan
+);
 CREATE TABLE device_ports (
     scan_id INTEGER NOT NULL REFERENCES scans(id),
     identity TEXT NOT NULL REFERENCES devices(identity),
@@ -44,6 +48,15 @@ CREATE TABLE device_ports (
     version TEXT
 );
 CREATE INDEX idx_device_ports_scan ON device_ports(scan_id);
+"""
+
+# Added in schema v2 (M8): exists on its own so v1 databases can be upgraded
+# in place without touching existing rows.
+_DEVICE_NAMES_TABLE = """
+CREATE TABLE IF NOT EXISTS device_names (
+    identity TEXT PRIMARY KEY REFERENCES devices(identity),
+    name TEXT NOT NULL              -- manual label set in the UI, beats any scan
+);
 """
 
 
@@ -75,8 +88,13 @@ class SQLiteStore:
         # connection is shared across threads (SQLite serializes internally).
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.execute("PRAGMA foreign_keys = ON")
-        if self.conn.execute("PRAGMA user_version").fetchone()[0] == 0:
+        version = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        if version == 0:
             self.conn.executescript(_SCHEMA)
+        elif version < SCHEMA_VERSION:
+            # v1 databases get the device_names table added in place (M8).
+            self.conn.executescript(_DEVICE_NAMES_TABLE)
+        if version != SCHEMA_VERSION:
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self.conn.commit()
 
@@ -153,8 +171,11 @@ class SQLiteStore:
     def load_devices(self) -> list[Device]:
         rows = self.conn.execute(
             """
-            SELECT identity, ip, hostname, mac, vendor, os_guess, last_seen_scan
-            FROM devices ORDER BY identity
+            SELECT d.identity, d.ip, d.hostname, d.mac, d.vendor, d.os_guess,
+                   d.last_seen_scan, n.name
+            FROM devices d
+            LEFT JOIN device_names n ON n.identity = d.identity
+            ORDER BY d.identity
             """
         ).fetchall()
         return [
@@ -166,6 +187,7 @@ class SQLiteStore:
                 vendor=r[4],
                 os_guess=r[5],
                 last_seen_scan=r[6],
+                name=r[7],
             )
             for r in rows
         ]
@@ -174,14 +196,24 @@ class SQLiteStore:
         """Devices that had at least one open port in this scan."""
         rows = self.conn.execute(
             """
-            SELECT DISTINCT d.identity, d.ip, d.hostname, d.mac, d.vendor, d.os_guess
-            FROM devices d JOIN device_ports p ON p.identity = d.identity
+            SELECT DISTINCT d.identity, d.ip, d.hostname, d.mac, d.vendor, d.os_guess, n.name
+            FROM devices d
+            LEFT JOIN device_names n ON n.identity = d.identity
+            JOIN device_ports p ON p.identity = d.identity
             WHERE p.scan_id = ? ORDER BY d.identity
             """,
             (scan_id,),
         ).fetchall()
         return [
-            Device(identity=r[0], ip=r[1], hostname=r[2], mac=r[3], vendor=r[4], os_guess=r[5])
+            Device(
+                identity=r[0],
+                ip=r[1],
+                hostname=r[2],
+                mac=r[3],
+                vendor=r[4],
+                os_guess=r[5],
+                name=r[6],
+            )
             for r in rows
         ]
 
@@ -212,3 +244,39 @@ class SQLiteStore:
         gone = tuple(sorted(set(a) - set(b)))
         changed = tuple(sorted(k for k in set(a) & set(b) if a[k] != b[k]))
         return ScanDiff(new_devices=new, gone_devices=gone, changed_devices=changed)
+
+    MAX_NAME_LEN = 64
+
+    def set_device_name(self, identity: str, name: str) -> str:
+        """Set a manual label on a known device (M8).
+
+        Raises KeyError for an unknown identity, ValueError for a blank or
+        over-long name. Returns the stored (stripped) name.
+        """
+        name = name.strip()
+        if not name:
+            raise ValueError("device name must not be empty")
+        if len(name) > self.MAX_NAME_LEN:
+            raise ValueError(f"device name must be at most {self.MAX_NAME_LEN} characters")
+        if self.conn.execute(
+            "SELECT 1 FROM devices WHERE identity = ?", (identity,)
+        ).fetchone() is None:
+            raise KeyError(identity)
+        self.conn.execute(
+            """
+            INSERT INTO device_names (identity, name) VALUES (?, ?)
+            ON CONFLICT(identity) DO UPDATE SET name = excluded.name
+            """,
+            (identity, name),
+        )
+        self.conn.commit()
+        return name
+
+    def clear_device_name(self, identity: str) -> None:
+        """Remove a manual label; display falls back to hostname/vendor/IP."""
+        if self.conn.execute(
+            "SELECT 1 FROM devices WHERE identity = ?", (identity,)
+        ).fetchone() is None:
+            raise KeyError(identity)
+        self.conn.execute("DELETE FROM device_names WHERE identity = ?", (identity,))
+        self.conn.commit()
