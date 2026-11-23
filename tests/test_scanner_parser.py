@@ -56,6 +56,22 @@ def test_empty_fixture():
     assert result.hosts == ()
 
 
+def test_real_nmap_attribute_is_portid_not_port():
+    # Regression: a real scan wrote every port as 0 because the parser read
+    # `port` — nmap's XML attribute is `portid`. A made-up `port` attribute
+    # must produce NO port, never a fabricated port 0.
+    real = (
+        '<nmaprun><host><status state="up"/>'
+        '<address addr="192.168.1.5" addrtype="ipv4"/>'
+        '<ports><port protocol="tcp" portid="443">'
+        '<state state="open"/></port></ports></host></nmaprun>'
+    )
+    invented = real.replace(' portid="443"', ' port="443"')
+
+    assert parse_nmap_xml(real, "192.168.1.0/24").hosts[0].ports[0].port == 443
+    assert parse_nmap_xml(invented, "192.168.1.0/24").hosts[0].ports == ()
+
+
 def test_malformed_xml_raises():
     import xml.etree.ElementTree
 
