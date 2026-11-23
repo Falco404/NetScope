@@ -3,9 +3,12 @@
 ## Summary
 NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
 service versions and vendor in a web UI (FastAPI + static vanilla JS). All
-eight milestones (M1–M8) are merged or in PR; 83 tests pass, ruff clean.
-The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
-latest one is recorded as acceptance evidence on issue #10.
+eight milestones (M1–M8) are merged, and the README is rewritten as the
+user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
+**DONE** as of 2026-11-23 — future work is bugfixes and the LAN-bind decision
+only. 83 tests pass, ruff clean. The tool has produced real scans of the home
+LAN (`192.168.0.0/24`); the latest one is recorded as acceptance evidence on
+issue #10.
 
 ## Done
 - **M1 scaffolding** (#12, `01d2ebb`): uv project, pytest, ruff, GitHub Actions CI (3.12/3.13), docs seed.
@@ -21,13 +24,17 @@ latest one is recorded as acceptance evidence on issue #10.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
 
 ## In progress
-- The M8 PR only. No other feature work is in flight; working tree clean on the branch.
+Nothing. Working tree clean on main (`a1c4e6d`); no open PRs or issues at
+handoff time (this docs handoff is the only branch in flight).
 
 ## Next steps (in order)
-1. Name Atom, Apollo, the router etc. in the UI once M8 merges, and re-scan to confirm the labels show in the device list.
-2. Decide whether `0.0.0.0` binding + any auth is wanted (UI currently has none; localhost-only by default).
+1. Deploy on **Apollo** (Fedora laptop): follow README Linux setup
+   (`dnf install nmap`, `uv sync`); first real LAN scan on Apollo is
+   unverified — timings there unknown (Windows: 236–272 s per `/24`).
+2. Decide whether `0.0.0.0` binding + any auth is wanted (UI currently has
+   none; localhost-only by default). Tracked as issue #28.
 3. Optional later: `nmap --script broadcast-nbname` as auto-fill for Windows hosts (manual names stay authoritative).
-4. Docs finalization: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
+4. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -35,7 +42,9 @@ tests must not assume POSIX binaries because CI is Linux-only while Falco runs
 tests on Windows; the nmap timeout is per pass (default 300 s, two passes);
 `-O` needs raw-socket privileges (admin PowerShell); this Hermes container sits
 on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
-run only on the Windows PC or Apollo.
+run only on the Windows PC or Apollo. macOS support is documented in the
+README but **never executed on a Mac** (reasoned from portable code + Homebrew
+nmap); `winget install nmap` package id likewise unverified from the container.
 
 ## How to run and test
 Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
