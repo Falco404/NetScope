@@ -115,6 +115,22 @@ function pollStatus() {
   poll();
 }
 
+async function prefillTarget() {
+  // Default the target to the server's own subnet; a public/unusual network
+  // returns null, so the field stays empty and you type the subnet yourself.
+  try {
+    const { target } = await api("/api/local-subnet");
+    if (target && !$("target").value) {
+      $("target").value = target;
+      $("scan-status").textContent = `target prefilled from this machine: ${target} (/24 assumed)`;
+    } else if (!target) {
+      $("scan-status").textContent = "could not detect a local subnet — type the target yourself";
+    }
+  } catch {
+    $("scan-status").textContent = "type the target subnet";
+  }
+}
+
 $("scan-btn").addEventListener("click", startScan);
 $("detail-close").addEventListener("click", () => { $("detail").hidden = true; });
 document.querySelectorAll("#devices th[data-sort]").forEach((th) => {
@@ -127,3 +143,4 @@ document.querySelectorAll("#devices th[data-sort]").forEach((th) => {
 });
 
 loadAll();
+prefillTarget();

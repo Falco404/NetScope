@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from netscope.device import Device
+from netscope.local_subnet import local_subnet as _detect_local_subnet
 from netscope.scanner.engine import NmapScanner
 from netscope.store import SQLiteStore
 from netscope.target import IllegalTargetError, validate_target
@@ -46,11 +48,21 @@ class ScanRequest(BaseModel):
 class NetScopeAPI:
     """Owns the store, the scanner and one scan job; build_app() exposes it."""
 
-    def __init__(self, store: SQLiteStore, scanner: NmapScanner) -> None:
+    def __init__(
+        self,
+        store: SQLiteStore,
+        scanner: NmapScanner,
+        subnet_fn: Callable[[], str | None] = _detect_local_subnet,
+    ) -> None:
         self.store = store
         self.scanner = scanner
+        self.subnet_fn = subnet_fn
         self.job = ScanJob()
         self._lock = threading.Lock()
+
+    def local_subnet(self) -> str | None:
+        """Server's own subnet guess (injectable in tests)."""
+        return self.subnet_fn()
 
     def device_map(self) -> dict[str, Device]:
         return {d.identity: d for d in self.store.load_devices()}
@@ -198,6 +210,12 @@ def build_app(api: NetScopeAPI) -> FastAPI:
             "disappeared": [{"identity": i, "name": names.get(i, i)} for i in d.gone_devices],
             "changed": [{"identity": i, "name": names.get(i, i)} for i in d.changed_devices],
         }
+
+    @app.get("/api/local-subnet")
+    def local_subnet() -> dict[str, Any]:
+        """Best guess at the server's own subnet, for the UI's default target.
+        Null when the machine sits on a public or unusual network."""
+        return {"target": api.local_subnet()}
 
     @app.post("/api/scan")
     def start_scan(req: ScanRequest) -> dict[str, Any]:

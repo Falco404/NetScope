@@ -32,14 +32,14 @@ Env vars (all optional): `NETSCOPE_DB` (database path, default `netscope.db`),
 `NETSCOPE_PORT` (default 8000), `NETSCOPE_NMAP_TIMEOUT` (seconds per nmap
 pass, default 300 — a `/24` with mostly silent hosts can take minutes).
 
-### Does the scan need admin PowerShell?
+The target field is prefilled with the subnet this machine would route from
+(assumed `/24`) — always editable, and the guess is wrong when the server runs
+on a Docker or VPN bridge instead of the home LAN.
 
-**Unverified — remembered for later.** The first real scan on Atlas was run
-from an **admin** PowerShell and took ~290 s for `192.168.0.0/24`. nmap can use
-ARP for discovery only when it has raw-socket privileges, so a *normal*
-PowerShell may discover fewer hosts and take longer. Nobody has compared the
-two yet: if a scan misses devices, retry from an admin PowerShell before
-blaming NetScope, and record the result here when someone actually tests it.
+Scans fingerprint services **and OS** (`nmap -sV -O`), so the OS column can
+fill in. `nmap -O` needs raw-socket privileges; if the OS column stays empty,
+retry from an admin PowerShell (see "Does the scan need admin PowerShell?"
+once PR #18's note lands on main).
 
 ## Rules
 

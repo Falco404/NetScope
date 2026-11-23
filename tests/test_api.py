@@ -27,9 +27,9 @@ class FakeRunner:
         return (FIXTURES / name).read_text()
 
 
-def make_client(tmp_path, block=None):
+def make_client(tmp_path, block=None, subnet=None):
     store = SQLiteStore(tmp_path / "test.db")
-    api = NetScopeAPI(store, NmapScanner(FakeRunner(block)))
+    api = NetScopeAPI(store, NmapScanner(FakeRunner(block)), subnet_fn=lambda: subnet)
     client = TestClient(build_app(api))
     return client, api, store
 
@@ -158,4 +158,16 @@ def test_busy_scan_returns_409(tmp_path):
 
     block.set()
     assert wait_done(api)["state"] == "done"
+    store.close()
+
+
+def test_local_subnet_endpoint_reports_detected_subnet(tmp_path):
+    client, _, store = make_client(tmp_path, subnet="192.168.0.0/24")
+    assert client.get("/api/local-subnet").json() == {"target": "192.168.0.0/24"}
+    store.close()
+
+
+def test_local_subnet_endpoint_reports_null(tmp_path):
+    client, _, store = make_client(tmp_path, subnet=None)
+    assert client.get("/api/local-subnet").json() == {"target": None}
     store.close()
