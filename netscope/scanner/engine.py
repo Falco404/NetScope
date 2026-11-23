@@ -13,8 +13,8 @@ ProgressCallback = Callable[[HostResult], None]
 
 
 class NmapScanner:
-    """Two-pass scan: `-sn` discovery on the subnet, then `-sV` only on
-    hosts that responded — keeps a /24 fast.
+    """Two-pass scan: `-sn` discovery on the subnet, then `-sV -O` port/service
+    and OS fingerprinting on hosts that responded — keeps a /24 fast.
 
     The TargetGuard runs before the runner is ever touched, so an illegal
     target never reaches nmap.
@@ -33,7 +33,7 @@ class NmapScanner:
         if not discovered:
             return ScanResult(target=target_str, hosts=())
 
-        service_xml = self.runner.run(["-sV", "-oX", "-", *discovered])
+        service_xml = self.runner.run(["-sV", "-O", "-oX", "-", *discovered])
         result = parse_nmap_xml(service_xml, target_str)
 
         if progress is not None:

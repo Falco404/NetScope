@@ -36,8 +36,8 @@ def test_two_pass_flow():
 
     assert len(runner.calls) == 2
     assert runner.calls[0] == ["-sn", "-oX", "-", "192.168.1.0/24"]
-    # service pass targets ONLY hosts that responded to discovery
-    assert runner.calls[1] == ["-sV", "-oX", "-", "192.168.1.10", "192.168.1.20"]
+    # service pass targets ONLY hosts that responded to discovery; -O fingerprints OS
+    assert runner.calls[1] == ["-sV", "-O", "-oX", "-", "192.168.1.10", "192.168.1.20"]
 
     assert len(result.hosts) == 2
     assert result.hosts[0].hostname == "atom"

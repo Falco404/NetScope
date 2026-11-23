@@ -32,6 +32,15 @@ Env vars (all optional): `NETSCOPE_DB` (database path, default `netscope.db`),
 `NETSCOPE_PORT` (default 8000), `NETSCOPE_NMAP_TIMEOUT` (seconds per nmap
 pass, default 300 — a `/24` with mostly silent hosts can take minutes).
 
+The target field is prefilled with the subnet this machine would route from
+(assumed `/24`) — always editable, and the guess is wrong when the server runs
+on a Docker or VPN bridge instead of the home LAN.
+
+Scans fingerprint services **and OS** (`nmap -sV -O`), so the OS column can
+fill in. `nmap -O` needs raw-socket privileges; if the OS column stays empty,
+retry from an admin PowerShell (see "Does the scan need admin PowerShell?"
+once PR #18's note lands on main).
+
 ## Rules
 
 See `AGENTS.md`. Scanning is restricted to RFC1918 ranges in code; config
