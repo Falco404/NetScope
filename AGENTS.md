@@ -5,6 +5,7 @@ Atom and Apollo) to map active devices, open ports and service versions,
 shown in a clean GUI.
 
 ## Rules
+- Pull main before starting any work.
 - Never push to main. Work on branches named `hermes/<topic>` and open a PR.
 - Small PRs, one feature each, with tests.
 - Scanning is only allowed against private ranges (10.x, 172.16-31.x,
