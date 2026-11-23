@@ -6,9 +6,10 @@ in a web UI.
 
 ## Status
 
-M1–M6 done: target guard, scanner core (nmap behind an interface), device
-model, SQLite store, and the web UI. M7 (lab integration pass) is open.
-See `docs/architecture.md` and the milestone issues.
+M1–M8 done or in PR: target guard, scanner core (nmap behind an interface),
+device model, SQLite store, web UI, lab integration (scan evidence recorded
+on issue #10) and manual device naming (issue #23). See `docs/architecture.md`,
+`docs/STATUS.md` and the milestone issues.
 
 ## Setup
 
@@ -36,10 +37,10 @@ The target field is prefilled with the subnet this machine would route from
 (assumed `/24`) — always editable, and the guess is wrong when the server runs
 on a Docker or VPN bridge instead of the home LAN.
 
-Scans fingerprint services **and OS** (`nmap -sV -O`), so the OS column can
-fill in. `nmap -O` needs raw-socket privileges; if the OS column stays empty,
-retry from an admin PowerShell (see "Does the scan need admin PowerShell?"
-once PR #18's note lands on main).
+Scans fingerprint services **and OS** (`nmap -sV -O`). A **regular PowerShell
+window is enough** — no admin required (verified 2026-11-23: two `/24` scans,
+236–272 s). `nmap -O` needs raw-socket privileges, so without admin the OS
+column stays empty; ports, vendors and device names still fill in.
 
 ## Rules
 

@@ -41,7 +41,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 78 passed
+uv run pytest                 # 83 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
@@ -49,7 +49,10 @@ uv run python -m netscope     # http://127.0.0.1:8000
 `NETSCOPE_HOST` (default `127.0.0.1`), `NETSCOPE_PORT` (8000), `NETSCOPE_NMAP_TIMEOUT` (300 s per pass).
 
 ## Open questions for the human
-- Did Atom and Apollo actually appear in the UI with ports/OS after the `portid` fix? Issue #10 was closed without recorded scan output.
-- Is admin PowerShell actually required for discovery? Unverified — README records that only admin PowerShell has been tested (~290 s for the `/24`).
-- Bind on `0.0.0.0` for phone access (no auth today) or keep localhost-only?
-- AGENTS.md was rewritten (#20) and no longer states the private-range restriction; the guard still enforces it in code. Should the rule be restored in AGENTS.md?
+- Bind on `0.0.0.0` for phone access + auth? Deferred — Falco has not decided yet; localhost-only stays.
+
+## Resolved (2026-11-23, Falco ran in a regular PowerShell window on `hermes/device-naming`)
+- **M7/M8 evidence recorded**: scans of `192.168.0.0/24` show real port numbers, vendor labels, and manual names (`.250` shown as "Atom Homeserver") that survive re-scans; diff/absent confirmed (`.19` and `.7` appeared, Chromecast/TV disappeared). Posted to issues #10 and #23.
+- **Admin PowerShell NOT required**: two `/24` scans completed unprivileged (271.77 s and 236.08 s). Only the OS column stays empty without raw sockets (`-O`).
+- **AGENTS.md stays silent** on the RFC1918 restriction (Falco decided): enforcement is in code via TargetGuard.
+- Known flake: first scan can abort with a transient nmap Windows assertion (`exit 3221226505`, `Target.cc` line 503); retry succeeds, failed scans are not stored. See `docs/gotchas.md`.
