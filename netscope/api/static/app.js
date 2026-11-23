@@ -94,6 +94,12 @@ async function startScan() {
 function pollStatus() {
   const poll = async () => {
     const s = await api("/api/scan/status");
+    if (s.state === "error") {
+      $("scan-status").textContent = `error: ${s.error ?? "unknown error"}`;
+      $("progress-bar").style.width = "0";
+      $("scan-btn").disabled = false;
+      return;
+    }
     $("scan-status").textContent = `${s.state}${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}`;
     $("progress-bar").style.width = s.state === "running" ? "60%" : s.state === "done" ? "100%" : "0";
     if (s.state === "running") {

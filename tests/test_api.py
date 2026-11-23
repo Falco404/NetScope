@@ -117,6 +117,22 @@ def test_diff_without_history(tmp_path):
     store.close()
 
 
+def test_runner_failure_surfaces_error_message(tmp_path):
+    class BrokenRunner:
+        def run(self, args: list[str]) -> str:
+            raise RuntimeError("nmap binary 'nmap' not found — install it")
+
+    store = SQLiteStore(tmp_path / "test.db")
+    api = NetScopeAPI(store, NmapScanner(BrokenRunner()))
+    client = TestClient(build_app(api))
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    status = wait_done(api)
+    assert status["state"] == "error"
+    assert "not found" in status["error"]
+    assert api.store.list_scans() == []
+    store.close()
+
+
 def test_busy_scan_returns_409(tmp_path):
     block = threading.Event()
     client, api, store = make_client(tmp_path, block=block)
