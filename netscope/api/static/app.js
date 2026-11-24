@@ -13,6 +13,25 @@ async function api(path, options) {
   return body;
 }
 
+// XSS-safe rendering (#32): strings that come from a scan or the DB are
+// assigned with textContent, never interpolated into HTML markup. LAN devices
+// control hostname/vendor/product strings and they are stored in SQLite, so
+// markup in them would otherwise execute script in the UI.
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text ?? "";
+  return node;
+}
+
+function emptyRow(colspan, text) {
+  const tr = document.createElement("tr");
+  const td = el("td", "empty", text);
+  td.colSpan = colspan;
+  tr.appendChild(td);
+  return tr;
+}
+
 function renderDevices() {
   const rows = [...devices].sort((a, b) => {
     const av = sortKey === "ports" ? a.open_ports.length : a[sortKey] ?? "";
@@ -20,21 +39,20 @@ function renderDevices() {
     return (av < bv ? -1 : av > bv ? 1 : 0) * (sortAsc ? 1 : -1);
   });
   const tbody = $("devices").querySelector("tbody");
-  tbody.innerHTML = "";
+  tbody.replaceChildren();
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">No devices yet — run a scan.</td></tr>';
+    tbody.appendChild(emptyRow(6, "No devices yet — run a scan."));
     return;
   }
   for (const d of rows) {
     const tr = document.createElement("tr");
     tr.className = "device";
-    tr.innerHTML = `
-      <td>${d.name}</td>
-      <td>${d.ip}</td>
-      <td class="status-${d.status}">${d.status}</td>
-      <td>${d.os_guess ?? ""}</td>
-      <td>${d.vendor ?? ""}</td>
-      <td class="ports">${d.open_ports.join(", ")}</td>`;
+    tr.appendChild(el("td", null, d.name));
+    tr.appendChild(el("td", null, d.ip));
+    tr.appendChild(el("td", `status-${d.status}`, d.status));
+    tr.appendChild(el("td", null, d.os_guess ?? ""));
+    tr.appendChild(el("td", null, d.vendor ?? ""));
+    tr.appendChild(el("td", "ports", d.open_ports.join(", ")));
     tr.addEventListener("click", () => openDetail(d.identity));
     tbody.appendChild(tr);
   }
@@ -44,19 +62,22 @@ async function loadAll() {
   devices = await api("/api/devices");
   renderDevices();
   const scans = await api("/api/scans");
-  $("scans").innerHTML = scans.length
-    ? scans.map((s) => `<li>${s.ts} — ${s.target}${s.duration_seconds ? ` (${s.duration_seconds}s)` : ""}</li>`).join("")
-    : '<li class="empty">No scans yet.</li>';
+  $("scans").replaceChildren(
+    ...(scans.length
+      ? scans.map((s) =>
+          el("li", null, `${s.ts} — ${s.target}${s.duration_seconds ? ` (${s.duration_seconds}s)` : ""}`))
+      : [el("li", "empty", "No scans yet.")])
+  );
   try {
     const diff = await api("/api/diff");
     const items = [
-      ...diff.appeared.map((x) => `<li class="appeared">${x.name} appeared</li>`),
-      ...diff.disappeared.map((x) => `<li class="disappeared">${x.name} disappeared</li>`),
-      ...diff.changed.map((x) => `<li class="changed">${x.name} changed open ports</li>`),
+      ...diff.appeared.map((x) => el("li", "appeared", `${x.name} appeared`)),
+      ...diff.disappeared.map((x) => el("li", "disappeared", `${x.name} disappeared`)),
+      ...diff.changed.map((x) => el("li", "changed", `${x.name} changed open ports`)),
     ];
-    $("changes").innerHTML = items.length ? items.join("") : '<li class="empty">Nothing changed.</li>';
+    $("changes").replaceChildren(items.length ? items : [el("li", "empty", "Nothing changed.")]);
   } catch {
-    $("changes").innerHTML = '<li class="empty">No comparison available yet.</li>';
+    $("changes").replaceChildren(el("li", "empty", "No comparison available yet."));
   }
 }
 
@@ -65,20 +86,30 @@ async function openDetail(identity) {
   detailIdentity = identity;
   $("detail").hidden = false;
   $("detail-title").textContent = d.name;
-  $("detail-fields").innerHTML = [
-    ["IP", d.ip],
-    ["Identity", d.identity],
-    ["MAC", d.mac ?? ""],
-    ["Vendor", d.vendor ?? ""],
-    ["OS guess", d.os_guess ?? ""],
-    ["Last seen", d.last_seen_scan ?? ""],
-  ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  $("detail-fields").replaceChildren(
+    ...[
+      ["IP", d.ip],
+      ["Identity", d.identity],
+      ["MAC", d.mac ?? ""],
+      ["Vendor", d.vendor ?? ""],
+      ["OS guess", d.os_guess ?? ""],
+      ["Last seen", d.last_seen_scan ?? ""],
+    ].flatMap(([k, v]) => [el("dt", null, k), el("dd", null, v)])
+  );
   // Manual name (M8): editable label that beats hostname/vendor in the list.
   $("detail-name").value = d.manual_name ?? "";
   $("name-status").textContent = "";
-  $("detail-ports").querySelector("tbody").innerHTML = d.ports.length
-    ? d.ports.map((p) => `<tr><td>${p.scan_id}</td><td>${p.port}</td><td>${p.protocol}</td><td>${p.service ?? ""}</td><td>${p.version ?? ""}</td></tr>`).join("")
-    : '<tr><td colspan="5" class="empty">No open ports recorded.</td></tr>';
+  $("detail-ports").querySelector("tbody").replaceChildren(
+    ...(d.ports.length
+      ? d.ports.map((p) => {
+          const tr = document.createElement("tr");
+          for (const cell of [p.scan_id, p.port, p.protocol, p.service ?? "", p.version ?? ""]) {
+            tr.appendChild(el("td", null, cell));
+          }
+          return tr;
+        })
+      : [emptyRow(5, "No open ports recorded.")])
+  );
 }
 
 async function saveName() {

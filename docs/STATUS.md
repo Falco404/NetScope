@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 87 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 89 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -24,15 +24,14 @@ latest one is recorded as acceptance evidence on issue #10.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
 
 ## In progress
-Nothing merged-pending: **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). Fixture capture still pending (see Known issues).
+Nothing merged-pending: **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). Fixture capture still pending (see Known issues). **#32 frontend XSS fix** is open as PR #46 (branch `hermes/frontend-xss`, stacked on the docs-only PR #45 so doc edits don't conflict): `app.js` renders every scan-derived string with `textContent`, guarded by `tests/test_frontend_xss.py`.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#32** Frontend: stop rendering scan data with `innerHTML` (XSS) — now matters more, since #30 makes LAN hostnames reach the UI.
-2. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
-3. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
-4. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
-5. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
-6. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+1. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
+2. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
+3. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
+4. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+5. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
 7. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
 8. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
@@ -58,7 +57,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 87 passed
+uv run pytest                 # 89 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
