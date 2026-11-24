@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 89 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 97 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -28,16 +28,20 @@ latest one is recorded as acceptance evidence on issue #10.
 - **Fix: presence from per-scan sightings** (#31, PR #49, `f47c9cd`): `scan_devices` table (schema v3, v2 DBs upgraded in place + backfilled from `device_ports`); seen/absent, `last_seen_scan` and `diff_scans()` now derive from explicit per-scan sightings, and the diff only compares devices inside both scans' targets (`/api/diff` default previous scan must share the target). 97 tests pass, ruff clean.
 - **Windows `-O` evidence** (PR #48, `856ae9f`): privilege observations plus a verbatim interrupted-capture fixture with a `ParseError` regression test.
 - **Handoff state** (PR #47, `14fbb6a`): restored doc rows dropped by stacked squash-merge.
-- **Conditional `-O` probe** (#34, PR #52): before the service pass, a quick `nmap -sV -O 127.0.0.1` probe checks whether OS fingerprinting works without privileges. If the probe fails the service pass retries without `-O` so the scan still completes (just without OS guesses). The UI shows "OS detection unavailable (requires admin/root)" when the probe fails. 99 tests pass, ruff clean.
+
+- **#31 presence from sightings** (#49, merged `f47c9cd` 2026-11-24): `scan_devices(scan_id, identity, ip)` table, `PRAGMA user_version = 3`, v2 DBs upgraded in place + backfilled from `device_ports`. Seen/absent, `last_seen_scan` and `diff_scans()` derive from explicit per-scan sightings; diff only compares devices inside both scans' targets; `/api/diff` default previous scan must share the target (404 otherwise). By design: historical sightings of portless up hosts can't be recovered from v2 DBs.
+- **Windows `-O` evidence + verbatim interrupted-capture fixture** (#48, merged `856ae9f` 2026-11-24): `nmap --version` output, privilege observations in `docs/gotchas.md`; `tests/fixtures/atom_windows_admin.xml` kept byte-identical (sha256 `28a1230c…`) and asserted to raise `ParseError`.
 
 ## In progress
-Nothing merged-pending.
+Nothing. All open work is merged to main (`f47c9cd`). **#34 was reopened** 2026-11-24: PR #48's body phrase "close #34 evidence gap" matched GitHub's closing keyword and auto-closed it, but only evidence shipped — `scanner/engine.py:36` still runs `-sV -O` unconditionally. The privilege probe is still to do.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
-2. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
-3. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
-4. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
+1. **#33** README setup: plain `uv sync` doesn't install pytest/ruff — smallest fix, do first.
+2. **#34** Conditional `-O` (reopened — see In progress): privilege probe, retry without `-O` on the privilege error, UI explanation for the empty OS column; offline tests assert `-O` selection via fake runner.
+3. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+4. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+5. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
+6. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -58,7 +62,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 89 passed
+uv run pytest                 # 97 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
@@ -67,7 +71,7 @@ uv run python -m netscope     # http://127.0.0.1:8000
 
 ## Open questions for the human
 - **Fixture capture**: replace `tests/fixtures/*.xml` with real captured `nmap -oX -` output from the home LAN. The container cannot produce it (no nmap, Docker bridge) — a capture on Windows or Apollo is needed.
-- #34 (`-O` privileges on Linux/macOS): awaiting Falco's check on Apollo.
+- #34 (`-O` privileges on Linux/macOS): **verified on Apollo by Falco** — root IS required (exit 1). Issue reopened; implementation pending. The Windows contradiction (unprivileged NetScope scans surviving `-O`) still needs one unprivileged NetScope scan to close.
 
 ## Resolved (2026-11-23, Falco ran in a regular PowerShell window on `hermes/device-naming`)
 - **M7/M8 evidence recorded**: scans of `192.168.0.0/24` show real port numbers, vendor labels, and manual names (`.250` shown as "Atom Homeserver") that survive re-scans; diff/absent confirmed (`.19` and `.7` appeared, Chromecast/TV disappeared). Posted to issues #10 and #23.
