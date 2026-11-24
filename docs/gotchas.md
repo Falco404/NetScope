@@ -54,6 +54,14 @@ Written for the next session. Each one cost real debugging time.
   execution.
 - **The browser harness's `js()` returns `{}` for some expressions** (flaky
   eval). Write results into `document.title` and read them with `page_info()`.
+- **`replaceChildren(array)` renders `[object HTMLLIElement]`, not the elements.**
+  A bare array argument is coerced to a DOMString — the "Changes since previous
+  scan" list showed the literal string in a live scan (2026-11-24) while the
+  scan-history call beside it spread correctly with `...`, so only one list broke
+  and manual checks missed it. Spread every array: `replaceChildren(...items)`.
+  `test_replace_children_spreads_array_arguments` walks each `replaceChildren(`
+  call in app.js (paren-balanced) and requires `...`-spread, a direct `el(...)`,
+  or an empty clear-call (`tbody.replaceChildren()` is legitimate).
 
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
