@@ -18,23 +18,26 @@ latest one is recorded as acceptance evidence on issue #10.
 - **M5 SQLite store** (#16): `scans` / `devices` / `device_ports`, `PRAGMA user_version = 1`, COALESCE upsert, `diff_scans()`.
 - **M6 web app** (#17): API (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`, `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`) + static UI, one scan at a time (409), error surfaced in UI, `elapsed_seconds`/`timeout_seconds`, `NETSCOPE_NMAP_TIMEOUT`.
 - **Fix: real port numbers** (#18): parser reads nmap's `portid` attribute (was reading a non-existent `port` attribute, so every port showed as `0/tcp`); fixtures corrected; regression test added.
-- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`. **Acceptance evidence recorded** 2026-11-23: re-scan of `192.168.0.0/24` shows real port numbers (no `0/tcp`), vendors for Chromecast/TV/KVM, 11 devices — posted to issue #10 (comment 7108419834). Hostnames were empty then for two reasons (parser bug #30, fixed in PR #44; Pi-hole PTR answers now appear); the OS column stayed empty until the privileged run (see #34).
+- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`. **Acceptance evidence recorded** 2026-11-23: re-scan of `192.168.0.0/24` shows real port numbers (no `0/tcp`), vendors for Chromecast/TV/KVM, 11 devices — posted to issue #10. Hostnames were empty then for two reasons (parser bug #30, fixed in PR #44; Pi-hole PTR answers now appear); the OS column stayed empty until the privileged run (see #34).
 - **M8 device naming** (#23, merged `ddd4fc4`): manual `device_names` table (schema v2, v1 DBs upgraded in place), `PUT`/`DELETE /api/devices/<identity>/name`, editable name field in the device detail UI; manual name beats hostname/vendor/IP in the list and survives later scans. Acceptance evidence posted to #23.
 - **IDEA.md** (#26): Hermes desktop project idea file is **gitignored** (repo `.gitignore` + global excludes file), never committed.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
+- **Fix: README `uv sync`** (#33, PR #51): all three setup blocks now use `uv sync --extra dev` so pytest/ruff are installed. Plain `uv sync` only installs the project deps (FastAPI, uvicorn), not dev tools.
+- **Fix: parser hostname/OS nesting** (#30, PR #44, `8ef0fe6`): real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`).
+- **Fix: frontend XSS** (#32, PR #46, `390d6a9`): `app.js` renders every scan-derived string with `textContent`, and `tests/test_frontend_xss.py` blocks markup APIs. Fixture capture still pending (see Known issues).
+- **Fix: presence from per-scan sightings** (#31, PR #49, `f47c9cd`): `scan_devices` table (schema v3, v2 DBs upgraded in place + backfilled from `device_ports`); seen/absent, `last_seen_scan` and `diff_scans()` now derive from explicit per-scan sightings, and the diff only compares devices inside both scans' targets (`/api/diff` default previous scan must share the target). 97 tests pass, ruff clean.
+- **Windows `-O` evidence** (PR #48, `856ae9f`): privilege observations plus a verbatim interrupted-capture fixture with a `ParseError` regression test.
+- **Handoff state** (PR #47, `14fbb6a`): restored doc rows dropped by stacked squash-merge.
 
 ## In progress
-Nothing merged-pending. **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). **#32 frontend XSS fix** merged 2026-11-24 (PR #46, `390d6a9`) — `app.js` renders every scan-derived string with `textContent`, and `tests/test_frontend_xss.py` blocks markup APIs. Fixture capture still pending (see Known issues).
-**#31 presence-from-sightings** in progress on branch `hermes/presence-sightings` (PR pending): `scan_devices` table (schema v3, v2 DBs upgraded in place + backfilled from `device_ports`); seen/absent, `last_seen_scan` and `diff_scans()` now derive from explicit per-scan sightings, and the diff only compares devices inside both scans' targets (`/api/diff` default previous scan must share the target). 96 tests pass, ruff clean.
+Nothing merged-pending.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports — **in progress**, PR open (see In progress).
-2. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
-3. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
-4. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
-5. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
-6. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
-7. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
+1. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
+2. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+3. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+4. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
+5. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
