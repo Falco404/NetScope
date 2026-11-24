@@ -76,7 +76,7 @@ async function loadAll() {
       ...diff.disappeared.map((x) => el("li", "disappeared", `${x.name} disappeared`)),
       ...diff.changed.map((x) => el("li", "changed", `${x.name} changed open ports`)),
     ];
-    $("changes").replaceChildren(items.length ? items : [el("li", "empty", "Nothing changed.")]);
+    $("changes").replaceChildren(...(items.length ? items : [el("li", "empty", "Nothing changed.")]));
   } catch {
     $("changes").replaceChildren(el("li", "empty", "No comparison available yet."));
   }

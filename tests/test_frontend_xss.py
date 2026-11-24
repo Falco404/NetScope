@@ -26,3 +26,29 @@ def test_scan_data_is_rendered_with_text_content():
     assert "textContent" in src, "cells must be set with textContent"
     assert "createElement" in src, "cells must be created with createElement"
     assert "replaceChildren" in src, "lists must be rebuilt with replaceChildren"
+
+
+def test_replace_children_spreads_array_arguments():
+    """A bare array passed to replaceChildren is coerced to a string.
+
+    `replaceChildren(items)` renders "[object HTMLLIElement]" instead of the
+    elements — the diff list bug seen in the live UI. Every call that passes
+    a list must spread it with `...`; single-element calls pass el(...) directly.
+    """
+    src = APP_JS.read_text(encoding="utf-8")
+    i = 0
+    while (i := src.find("replaceChildren(", i)) != -1:
+        j = i + len("replaceChildren(")
+        depth = 1
+        while depth:  # balance parens to find the end of the argument list
+            if src[j] == "(":
+                depth += 1
+            elif src[j] == ")":
+                depth -= 1
+            j += 1
+        args = src[i + len("replaceChildren(") : j - 1].strip()
+        assert not args or args.startswith("...") or args.startswith("el("), (
+            "replaceChildren() must spread array arguments with `...` "
+            f"(a bare array renders as '[object HTMLLIElement]'): {args!r}"
+        )
+        i = j
