@@ -28,11 +28,23 @@ def test_nonzero_exit_reports_code():
     assert "exit 3" in str(exc.value)
 
 
-def test_probe_os_returns_true_on_success(tmp_path):
-    # probe_os runs nmap -sV -O 127.0.0.1; in this container nmap isn't
-    # installed so the probe will fail — but the method should still return
-    # False gracefully, not raise.  On a real machine with nmap installed
-    # it would return True (or False if unprivileged).
-    runner = SubprocessNmapRunner()
-    # In the Hermes container nmap is absent → probe returns False
+def test_probe_os_true_when_run_succeeds():
+    # Deterministic: override run() to simulate nmap succeeding with -O.
+    runner = SubprocessNmapRunner(binary=sys.executable)
+
+    def _ok(args: list[str]) -> str:
+        return "<nmaprun/>"
+
+    runner.run = _ok  # type: ignore[method-assign]
+    assert runner.probe_os() is True
+
+
+def test_probe_os_false_when_run_fails():
+    # Deterministic: override run() to simulate nmap refusing -O (exit 1).
+    runner = SubprocessNmapRunner(binary=sys.executable)
+
+    def _fail(args: list[str]) -> str:
+        raise RuntimeError("nmap failed (exit 1): requires root")
+
+    runner.run = _fail  # type: ignore[method-assign]
     assert runner.probe_os() is False
