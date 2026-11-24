@@ -45,11 +45,7 @@ on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
 run only on the Windows PC or Apollo. macOS support is documented in the
 README but **never executed on a Mac** (reasoned from portable code + Homebrew
 nmap); `winget install nmap` package id likewise unverified from the container.
-**Fixture capture is still pending**: the container has no nmap, and the
-2026-11-24 Windows capture attempt (`nmap -sV -O -oX - 192.168.0.250 > atom.xml`)
-produced only the XML preamble in UTF-16-LE — `-O` quit unprivileged before any
-`<host>` block. Retry from an **admin** PowerShell with `nmap -sV -O -oX atom.xml
-192.168.0.250` (nmap writes UTF-8 itself) and I'll wire it into the tests.
+**Windows fixture evidence now captured (2026-11-24, admin PowerShell, real run)**: `nmap -sV -O -oX atom.xml 192.168.0.250` as admin PowerShell produces a real XML file, preserved as tests/fixtures/atom_windows_admin.xml. Unprivileged PowerShell with `-O` still aborts before any <host> (UTF-16-LE header, no data) — documented in docs/gotchas.md. This closes the evidence gap noted in earlier issues (#34).
 
 ## How to run and test
 Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
