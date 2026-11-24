@@ -26,3 +26,25 @@ def test_nonzero_exit_reports_code():
     with pytest.raises(RuntimeError) as exc:
         runner.run(["-c", "raise SystemExit(3)"])
     assert "exit 3" in str(exc.value)
+
+
+def test_probe_os_true_when_run_succeeds():
+    # Deterministic: override run() to simulate nmap succeeding with -O.
+    runner = SubprocessNmapRunner(binary=sys.executable)
+
+    def _ok(args: list[str]) -> str:
+        return "<nmaprun/>"
+
+    runner.run = _ok  # type: ignore[method-assign]
+    assert runner.probe_os() is True
+
+
+def test_probe_os_false_when_run_fails():
+    # Deterministic: override run() to simulate nmap refusing -O (exit 1).
+    runner = SubprocessNmapRunner(binary=sys.executable)
+
+    def _fail(args: list[str]) -> str:
+        raise RuntimeError("nmap failed (exit 1): requires root")
+
+    runner.run = _fail  # type: ignore[method-assign]
+    assert runner.probe_os() is False

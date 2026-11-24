@@ -5,6 +5,7 @@ let devices = [];
 let sortKey = "name";
 let sortAsc = true;
 let detailIdentity = null;
+let osDetectionAvailable = true;
 
 async function api(path, options) {
   const res = await fetch(path, options);
@@ -164,10 +165,15 @@ function pollStatus() {
       $("scan-btn").disabled = false;
       return;
     }
+    osDetectionAvailable = s.os_detection_available !== false;
     const limit = s.timeout_seconds ? ` / ${s.timeout_seconds}s limit per pass` : "";
+    const osNote = !osDetectionAvailable
+      ? " — OS detection unavailable (requires admin/root)"
+      : "";
     $("scan-status").textContent =
       `${s.state}${s.elapsed_seconds ? ` — ${s.elapsed_seconds}s${limit}` : ""}` +
-      `${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}`;
+      `${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}` +
+      osNote;
     $("progress-bar").style.width = s.state === "running" ? "60%" : s.state === "done" ? "100%" : "0";
     if (s.state === "running") {
       setTimeout(poll, 1000);

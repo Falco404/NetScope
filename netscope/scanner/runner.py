@@ -16,6 +16,7 @@ class NmapRunner(Protocol):
     """
 
     def run(self, args: list[str]) -> str: ...
+    def probe_os(self) -> bool: ...
 
 
 class SubprocessNmapRunner:
@@ -44,3 +45,15 @@ class SubprocessNmapRunner:
         if proc.returncode != 0:
             raise RuntimeError(f"nmap failed (exit {proc.returncode}): {proc.stderr.strip()}")
         return proc.stdout
+
+    def probe_os(self) -> bool:
+        """Check whether nmap can do OS fingerprinting (-O) without privileges.
+
+        Runs a quick scan of localhost with -O; returns True on success,
+        False if nmap refuses (e.g. "requires root privileged" on Linux).
+        """
+        try:
+            self.run(["-sV", "-O", "-oX", "-", "127.0.0.1"])
+            return True
+        except RuntimeError:
+            return False

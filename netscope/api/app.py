@@ -39,6 +39,7 @@ class ScanJob:
     error: str | None = None
     duration_seconds: float | None = None
     started_at: float | None = None
+    os_detection_available: bool = True
 
 
 class ScanRequest(BaseModel):
@@ -96,6 +97,7 @@ class NetScopeAPI:
                 self.job.state = "done"
                 self.job.scan_id = scan_id
                 self.job.duration_seconds = duration
+                self.job.os_detection_available = result.os_detection_available
         except Exception as exc:  # nmap failure etc. -> reported to the UI
             with self._lock:
                 self.job.state = "error"
@@ -123,6 +125,7 @@ class NetScopeAPI:
                 "elapsed_seconds": elapsed,
                 # Per nmap call limit; the scan runs two passes (discovery, services).
                 "timeout_seconds": getattr(self.scanner.runner, "timeout", None),
+                "os_detection_available": self.job.os_detection_available,
             }
 
 

@@ -29,3 +29,4 @@ class HostResult:
 class ScanResult:
     target: str
     hosts: tuple[HostResult, ...]
+    os_detection_available: bool = True
