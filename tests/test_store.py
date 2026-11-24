@@ -19,7 +19,7 @@ def fixture_scan(name: str) -> ScanResult:
     return parse_nmap_xml((FIXTURES / name).read_text(), "192.168.1.0/24")
 
 
-def scan_single_host(ip: str, port: int) -> ScanResult:
+def scan_single_host(ip: str, port: int, target: str = "192.168.1.0/24") -> ScanResult:
     """One up host with a single open port — used to simulate disappearance."""
     xml = (
         f'<nmaprun><host><status state="up"/><address addr="{ip}" addrtype="ipv4"/>'
@@ -27,7 +27,16 @@ def scan_single_host(ip: str, port: int) -> ScanResult:
         f'<ports><port protocol="tcp" portid="{port}">'
         f'<state state="open"/></port></ports></host></nmaprun>'
     )
-    return parse_nmap_xml(xml, "192.168.1.0/24")
+    return parse_nmap_xml(xml, target)
+
+
+def scan_host_no_ports(ip: str, target: str = "192.168.1.0/24") -> ScanResult:
+    """One up host that exposes zero ports (#31: still a sighting)."""
+    xml = (
+        f'<nmaprun><host><status state="up"/><address addr="{ip}" addrtype="ipv4"/>'
+        f"<hostname name=\"{ip}\" type=\"PTR\"/></host></nmaprun>"
+    )
+    return parse_nmap_xml(xml, target)
 
 
 @pytest.fixture()
@@ -43,9 +52,9 @@ def test_schema_created_and_versioned(tmp_path):
     import sqlite3
 
     conn = sqlite3.connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"scans", "devices", "device_ports", "device_names"} <= tables
+    assert {"scans", "devices", "device_ports", "device_names", "scan_devices"} <= tables
 
 
 def test_v1_database_is_upgraded_in_place(tmp_path):
@@ -73,10 +82,102 @@ def test_v1_database_is_upgraded_in_place(tmp_path):
     conn.close()
 
     with SQLiteStore(path) as s:
-        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 3
         assert s.load_devices()[0].identity == "192.168.1.5"  # old row survives
         assert s.set_device_name("192.168.1.5", "Renamed box") == "Renamed box"
         assert s.load_devices()[0].display_name == "Renamed box"
+
+
+def test_v2_database_is_upgraded_in_place(tmp_path):
+    """Schema v2 databases gain scan_devices (#31) backfilled from device_ports."""
+    path = tmp_path / "v2.db"
+    import sqlite3
+
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE scans (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,
+            target TEXT NOT NULL, duration_seconds REAL);
+        CREATE TABLE devices (identity TEXT PRIMARY KEY, ip TEXT NOT NULL, hostname TEXT,
+            mac TEXT, vendor TEXT, os_guess TEXT, last_seen_scan INTEGER NOT NULL);
+        CREATE TABLE device_names (identity TEXT PRIMARY KEY REFERENCES devices(identity),
+            name TEXT NOT NULL);
+        CREATE TABLE device_ports (scan_id INTEGER NOT NULL REFERENCES scans(id),
+            identity TEXT NOT NULL REFERENCES devices(identity), ip TEXT NOT NULL,
+            port INTEGER NOT NULL, protocol TEXT NOT NULL, service TEXT, version TEXT);
+        CREATE INDEX idx_device_ports_scan ON device_ports(scan_id);
+        INSERT INTO scans (id, ts, target) VALUES (1, '2026-11-23T12:00:00+00:00',
+            '192.168.1.0/24');
+        INSERT INTO devices (identity, ip, last_seen_scan) VALUES ('192.168.1.7',
+            '192.168.1.7', 1);
+        INSERT INTO device_ports (scan_id, identity, ip, port, protocol)
+        VALUES (1, '192.168.1.7', '192.168.1.7', 80, 'tcp');
+        """
+    )
+    conn.execute("PRAGMA user_version = 2")
+    conn.commit()
+    conn.close()
+
+    with SQLiteStore(path) as s:
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        # Every stored port row implies a sighting: old scans keep presence data.
+        assert s.sightings(1) == {"192.168.1.7": "192.168.1.7"}
+        assert s.scan_target(1) == "192.168.1.0/24"
+
+
+def test_up_host_without_ports_is_sighted(store):
+    """#31 bug 1: an up host with zero open ports is present, not absent."""
+    scan_id, _ = store.save_scan(scan_host_no_ports("192.168.1.30"), {}, ts=TS1)
+
+    assert store.sightings(scan_id) == {"192.168.1.30": "192.168.1.30"}
+    assert [d.identity for d in store.devices_in_scan(scan_id)] == ["192.168.1.30"]
+    assert store.scan_ports(scan_id) == {}  # no ports, yet still sighted
+
+    dev = store.load_devices()[0]
+    assert dev.identity == "192.168.1.30"
+    assert dev.open_ports == ()
+    assert dev.last_seen_scan == scan_id
+
+
+def test_absent_device_keeps_last_seen_scan(store):
+    """#31 bug 2: a device NOT in this scan keeps its previous last_seen_scan."""
+    _, devices = store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    s1 = store.latest_scan_id()
+    # Second scan covers the same /24 but only apollo answers.
+    store.save_scan(scan_single_host("192.168.1.20", 53), devices, ts=TS3)
+
+    atom = next(d for d in store.load_devices() if d.identity == "AA:BB:CC:DD:EE:01")
+    assert atom.last_seen_scan == s1  # NOT stamped with the scan that missed it
+    apollo = next(d for d in store.load_devices() if d.identity == "192.168.1.20")
+    assert apollo.last_seen_scan == store.latest_scan_id()
+
+
+def test_diff_ignores_scans_of_other_target(store):
+    """#31 bug 3: a single-IP scan must not report devices outside its target
+    as disappeared or new."""
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)  # atom + apollo
+    s1 = store.latest_scan_id()
+    # /32 scan of apollo only — atom was never in scope for this scan.
+    store.save_scan(scan_single_host("192.168.1.20", 53, target="192.168.1.20/32"), {}, ts=TS3)
+    s2 = store.latest_scan_id()
+
+    diff = store.diff_scans(s1, s2)
+    assert diff.gone_devices == ()  # atom not covered by the /32 target
+    assert diff.new_devices == ()
+    assert diff.changed_devices == ()  # apollo's port set is identical
+
+
+def test_diff_counts_portless_sightings(store):
+    """#31: appeared/disappeared come from sightings, so a portless up host
+    appearing in b counts as new (and vanishing counts as gone)."""
+    store.save_scan(scan_single_host("192.168.1.20", 53), {}, ts=TS1)
+    s1 = store.latest_scan_id()
+    store.save_scan(scan_host_no_ports("192.168.1.30"), {}, ts=TS3)
+    s2 = store.latest_scan_id()
+
+    diff = store.diff_scans(s1, s2)
+    assert diff.new_devices == ("192.168.1.30",)  # up, zero ports, still new
+    assert diff.gone_devices == ("192.168.1.20",)
 
 
 def test_manual_name_beats_hostname_and_survives_scans(store):

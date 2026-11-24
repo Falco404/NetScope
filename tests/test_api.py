@@ -153,6 +153,48 @@ def test_diff_without_history(tmp_path):
     store.close()
 
 
+def test_portless_up_device_shows_seen(tmp_path):
+    """#31: an up host with zero open ports is 'seen' in /api/devices."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    wait_done(api)
+    # Second scan of the same /24: apollo answers but exposes no ports.
+    store.save_scan(
+        parse_nmap_xml(
+            '<nmaprun><host><status state="up"/><address addr="192.168.1.20" addrtype="ipv4"/>'
+            '<hostname name="apollo" type="PTR"/></host></nmaprun>',
+            "192.168.1.0/24",
+        ),
+        api.device_map(),
+    )
+    devices = client.get("/api/devices").json()
+    apollo = next(d for d in devices if d["identity"] == "192.168.1.20")
+    assert apollo["status"] == "seen"
+    assert apollo["open_ports"] == []
+    atom = next(d for d in devices if d["identity"] == "AA:BB:CC:DD:EE:01")
+    assert atom["status"] == "absent"  # not sighted in scan 2
+    assert atom["last_seen_scan"] == 1  # kept from scan 1, not stamped with 2
+    store.close()
+
+
+def test_diff_default_requires_same_target(tmp_path):
+    """#31: /api/diff must not pair scans of different targets by default."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    wait_done(api)
+    client.post("/api/scan", json={"target": "192.168.1.20/32"})
+    wait_done(api)
+    # Latest scan is the /32; no earlier /32 scan exists to compare against.
+    res = client.get("/api/diff")
+    assert res.status_code == 404
+    assert "same target" in res.json()["detail"]
+    # Explicit ids still work.
+    res = client.get("/api/diff", params={"from_id": 1, "to_id": 2})
+    assert res.status_code == 200
+    assert res.json()["from_scan"] == 1 and res.json()["to_scan"] == 2
+    store.close()
+
+
 def test_runner_failure_surfaces_error_message(tmp_path):
     class BrokenRunner:
         def run(self, args: list[str]) -> str:

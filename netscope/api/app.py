@@ -143,10 +143,22 @@ def build_app(api: NetScopeAPI) -> FastAPI:
 
     @app.get("/api/devices")
     def devices() -> list[dict[str, Any]]:
-        latest = api.store.latest_scan_id()
-        ports = api.store.scan_ports(latest) if latest is not None else {}
+        sightings_cache: dict[int, dict[str, str]] = {}
+
+        def sightings_for(scan_id: int) -> dict[str, str]:
+            if scan_id not in sightings_cache:
+                sightings_cache[scan_id] = api.store.sightings(scan_id)
+            return sightings_cache[scan_id]
+
         out = []
         for d in api.store.load_devices():
+            # Presence is judged against the latest scan that could have seen
+            # this device (#31): a single-IP scan of another device must not
+            # mark every other device absent, and an up host with zero open
+            # ports is still seen.
+            cover = api.store.latest_scan_covering(d.ip)
+            seen = sightings_for(cover) if cover is not None else {}
+            ports = api.store.scan_ports(cover) if cover is not None else {}
             open_ports = sorted(ports.get(d.identity, ()))
             out.append(
                 {
@@ -157,7 +169,7 @@ def build_app(api: NetScopeAPI) -> FastAPI:
                     "hostname": d.hostname,
                     "vendor": d.vendor,
                     "os_guess": d.os_guess,
-                    "status": "seen" if d.identity in ports else "absent",
+                    "status": "seen" if d.identity in seen else "absent",
                     "open_ports": [f"{p}/{proto}" for p, proto in open_ports],
                     "last_seen_scan": d.last_seen_scan,
                 }
@@ -216,15 +228,20 @@ def build_app(api: NetScopeAPI) -> FastAPI:
 
     @app.get("/api/diff")
     def diff(from_id: int | None = None, to_id: int | None = None) -> dict[str, Any]:
-        scans = [s.id for s in api.store.list_scans()]  # newest first
+        scans = api.store.list_scans()  # newest first
         if to_id is None:
             if not scans:
                 raise HTTPException(status_code=404, detail="no scans stored")
-            to_id = scans[0]
+            to_id = scans[0].id
         if from_id is None:
-            prev = [s for s in scans if s < to_id]
+            # Default previous scan must share the target (#31): comparing a
+            # single-IP scan against a /24 scan of unrelated devices is noise.
+            target_to = api.store.scan_target(to_id)
+            prev = [s.id for s in scans if s.id < to_id and s.target == target_to]
             if not prev:
-                raise HTTPException(status_code=404, detail="no earlier scan to compare")
+                raise HTTPException(
+                    status_code=404, detail="no earlier scan with the same target to compare"
+                )
             from_id = prev[0]
         d = api.store.diff_scans(from_id, to_id)
         names = {x.identity: x.display_name for x in api.store.load_devices()}

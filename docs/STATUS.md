@@ -25,9 +25,10 @@ latest one is recorded as acceptance evidence on issue #10.
 
 ## In progress
 Nothing merged-pending. **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). **#32 frontend XSS fix** merged 2026-11-24 (PR #46, `390d6a9`) — `app.js` renders every scan-derived string with `textContent`, and `tests/test_frontend_xss.py` blocks markup APIs. Fixture capture still pending (see Known issues).
+**#31 presence-from-sightings** in progress on branch `hermes/presence-sightings` (PR pending): `scan_devices` table (schema v3, v2 DBs upgraded in place + backfilled from `device_ports`); seen/absent, `last_seen_scan` and `diff_scans()` now derive from explicit per-scan sightings, and the diff only compares devices inside both scans' targets (`/api/diff` default previous scan must share the target). 96 tests pass, ruff clean.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
+1. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports — **in progress**, PR open (see In progress).
 2. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
 3. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
 4. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
