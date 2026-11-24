@@ -136,7 +136,7 @@ def test_save_load_roundtrip(store):
     atom = loaded[1]
     assert atom.hostname == "atom"
     assert atom.vendor == "MicroStar Intl"
-    assert atom.os_guess == "Linux"
+    assert atom.os_guess == "Linux 2.6.32 - 3.x"
     assert atom.last_seen_scan == scan_id
 
     ports = store.scan_ports(scan_id)
@@ -155,7 +155,7 @@ def test_second_scan_updates_devices_without_duplicates(store):
     # absorbed from the service pass.
     assert atom.identity == "AA:BB:CC:DD:EE:01"
     assert atom.mac == "AA:BB:CC:DD:EE:01"
-    assert atom.os_guess == "Linux"
+    assert atom.os_guess == "Linux 2.6.32 - 3.x"
     assert atom.last_seen_scan == scan2
     assert store.latest_scan_id() == scan2
 

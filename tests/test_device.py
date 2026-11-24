@@ -19,7 +19,7 @@ def test_resolution_from_service_fixture():
 
     assert atom.identity == "AA:BB:CC:DD:EE:01"  # MAC, not IP
     assert atom.hostname == "atom"
-    assert atom.os_guess == "Linux"
+    assert atom.os_guess == "Linux 2.6.32 - 3.x"
     assert atom.vendor == "MicroStar Intl"
     assert atom.display_name == "atom"
     # closed 443 must not appear
@@ -50,7 +50,7 @@ def test_dedup_across_two_scans():
 
     atom = known["AA:BB:CC:DD:EE:01"]
     assert atom.hostname == "atom"
-    assert atom.os_guess == "Linux"
+    assert atom.os_guess == "Linux 2.6.32 - 3.x"
     assert atom.last_seen_scan == 2
 
     # Apollo had no MAC in either scan: stays keyed by IP, hostname absorbed.
@@ -74,7 +74,7 @@ def test_existing_device_keeps_fields_when_scan2_has_less():
             ip="192.168.1.10",
             hostname="atom",
             mac="AA:BB:CC:DD:EE:01",
-            os_guess="Linux",
+            os_guess="Linux 2.6.32 - 3.x",
         )
     }
     bare = parse_nmap_xml(
@@ -85,6 +85,6 @@ def test_existing_device_keeps_fields_when_scan2_has_less():
     merged = merge_scan(seed, bare, scan_id=3)
     atom = merged["AA:BB:CC:DD:EE:01"]
     assert atom.hostname == "atom"  # kept, empty scan didn't blank it
-    assert atom.os_guess == "Linux"  # kept
+    assert atom.os_guess == "Linux 2.6.32 - 3.x"  # kept
     assert atom.open_ports == ()  # ports are a fresh snapshot
     assert atom.last_seen_scan == 3

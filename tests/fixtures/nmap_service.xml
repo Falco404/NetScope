@@ -5,9 +5,11 @@
     <status state="up" reason="arp-response" reason_ttl="0"/>
     <address addr="192.168.1.10" addrtype="ipv4"/>
     <address addr="AA:BB:CC:DD:EE:01" addrtype="mac" vendor="MicroStar Intl"/>
-    <hostname name="atom" type="PTR"/>
+    <hostnames><hostname name="atom" type="PTR"/></hostnames>
     <os>
-      <osclass type="linux" vendor="Linux" osfamily="Linux" osgen="2.6.x" scanmethods="SYN,FIN,NULL" target="Linux 2.6.32 - 3.x"/>
+      <osmatch name="Linux 2.6.32 - 3.x" accuracy="10" line="1">
+        <osclass type="linux" vendor="Linux" osfamily="Linux" osgen="2.6.x" scanmethods="SYN,FIN,NULL" accuracy="10"/>
+      </osmatch>
     </os>
     <ports>
       <port protocol="tcp" portid="22">
@@ -27,7 +29,7 @@
   <host>
     <status state="up" reason="echo-reply" reason_ttl="64"/>
     <address addr="192.168.1.20" addrtype="ipv4"/>
-    <hostname name="apollo" type="PTR"/>
+    <hostnames><hostname name="apollo" type="PTR"/></hostnames>
     <ports>
       <port protocol="tcp" portid="53">
         <state state="open" reason="syn-ack" reason_ttl="64"/>
