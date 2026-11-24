@@ -9,14 +9,19 @@ Written for the next session. Each one cost real debugging time.
 - **ElementTree quirks:** `findall("a/@attr")` returns nothing (use `element.get("attr")`); `elem or elem` raises a truth-value `DeprecationWarning` — always compare with `is None`. Attribute predicates in paths **do** work: `find("hostnames/hostname[@type='PTR']")` returns the PTR entry, verified on Python 3.12, 3.13 and 3.14. An earlier note claiming they don't was wrong — the hostname bug (#30) was purely the missing `<hostnames>` nesting, so the parser's explicit `findall` + `get("type")` selection is a style choice, not a workaround.
 - **Fixtures must mirror real nmap output.** `tests/fixtures/*.xml` are hand-written; ours invented `port="..."` **and** the hostname/OS nesting, so every test passed while real scans were broken (83 green, three parser bugs). When adding a fixture, copy real `-oX -` output, don't guess structure.
 - **Capture XML with `-oX <file>`, not a shell redirect.** `nmap ... -oX - > atom.xml` in PowerShell writes **UTF-16-LE** (nmap's own output is UTF-8) and, when `-O` quits unprivileged, the file ends after the `<scaninfo>` line — no `<host>`, no closing tag (our 2026-11-24 capture did exactly that, 8762 bytes). Let nmap write the file itself: `nmap -sV -O -oX atom.xml 192.168.0.250`.
-- **`nmap -O` on Windows: admin/privilege behavior, CLI and evidence.**
-    - `nmap --version` in regular PowerShell prints:
-      Nmap version 7.80 (https://nmap.org)
+- **`nmap -O` on Windows: privilege behavior (Falco's evidence, 2026-11-24).**
+    - `nmap --version` in regular PowerShell (same binary NetScope's runner calls):
+      ```
+      Nmap version 7.80 ( https://nmap.org )
       Platform: i686-pc-windows-windows
-      ...
-    - Unprivileged PowerShell with `-O`: "TCP/IP fingerprinting (for OS scan) requires root privileged. QUITTING!" (`exit 1`, same as Linux). **No `<host>` block is written.**
-    - Admin PowerShell with `-O`: scan works; fixture from `nmap -sV -O -oX atom.xml 192.168.0.250` (interrupted by Ctrl+C, real run) produces valid nmap-shaped XML. File is in /mnt/atom.xml — preserved in tests/fixtures/atom_windows_admin.xml as real evidence for parser regression.
-    - NetScope's runner may have passed `-O` silently on unprivileged runs (two `-O` scans succeeded with OS empty). **We preserve both behaviors as evidence, not as a rule.**
+      Compiled with: nmap-liblua-5.3.5 openssl-1.0.2s nmap-libssh2-1.8.2 nmap-libz-1.2.11
+      nmap-libpcre-7.6 Npcap-0.9982 nmap-libdnet-1.12 ipv6
+      Compiled without:
+      Available nsock engines: iocp poll select
+      ```
+    - Unprivileged CLI run with `-O`: quits with "TCP/IP fingerprinting (for OS scan) requires root privileged. QUITTING!" (exit 1) — same message as Apollo/Fedora.
+    - **Unresolved contradiction:** two unprivileged NetScope scans on 2026-11-23 completed with `-O` in args (OS column empty). Npcap 0.9982 is compiled in, which may let scans survive without admin; needs one unprivileged NetScope scan to close. #34 makes `-O` conditional on a privilege probe so both behaviors are safe.
+    - **Ctrl+C during a scan writes a preamble-only XML file.** The admin run `nmap -sV -O -oX atom.xml 192.168.0.250` interrupted after a couple of seconds produced 4440 bytes: XML header + `<scaninfo>` + verbose/debugging, **no `<host>` block and no closing `</nmaprun>`** — `ET.fromstring` raises `ParseError`. NetScope only stores finished scans (a runner error stores nothing), so this never reaches the parser in normal operation. The capture is kept verbatim as `tests/fixtures/atom_windows_admin.xml` and asserted to raise `ParseError` in `tests/test_scanner_parser.py` — do **not** hand-complete it to make it parse (AGENTS.md fixture rule).
 - **`nmap` is not installed in the Hermes container.** Real scans only run on the Windows PC (`winget install nmap`) or on Apollo. Missing binary surfaces as the UI error line now, not a crash.
 - **Admin PowerShell is NOT required for discovery + `-sV`** (verified 2026-11-23 in a regular PowerShell window: two `192.168.0.0/24` scans completed unprivileged, 271.77 s and 236.08 s, OS column empty). The 2026-11-24 admin run (`/24`, 236.1 s) shows the **OS column populated** (`Linux 4.10`, `Microsoft Windows 10 1607`, `Linux 2.6.32 - 3.10`) and PTR hostnames resolving via Pi-hole (`blocked.local` on several devices) — so admin only changes whether `-O` survives, per the line above.
 

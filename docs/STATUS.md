@@ -45,7 +45,8 @@ on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
 run only on the Windows PC or Apollo. macOS support is documented in the
 README but **never executed on a Mac** (reasoned from portable code + Homebrew
 nmap); `winget install nmap` package id likewise unverified from the container.
-**Windows fixture evidence now captured (2026-11-24, admin PowerShell, real run)**: `nmap -sV -O -oX atom.xml 192.168.0.250` as admin PowerShell produces a real XML file, preserved as tests/fixtures/atom_windows_admin.xml. Unprivileged PowerShell with `-O` still aborts before any <host> (UTF-16-LE header, no data) — documented in docs/gotchas.md. This closes the evidence gap noted in earlier issues (#34).
+**Windows `-O` evidence recorded (2026-11-24)**: regular PowerShell `nmap --version` → Nmap 7.80, `i686-pc-windows-windows`, Npcap 0.9982 compiled in (full output in `docs/gotchas.md`). Unprivileged CLI with `-O` quits (exit 1, same as Apollo). The Nov-23 unprivileged NetScope scans surviving `-O` remain an open contradiction — one unprivileged NetScope scan would close it; #34's privilege probe covers both. **Fixture capture still pending**: the admin run `nmap -sV -O -oX atom.xml 192.168.0.250` was interrupted with Ctrl+C after a couple of seconds, so the file is preamble-only (no `<host>`, no closing tag) and raises `ParseError` — kept verbatim as `tests/fixtures/atom_windows_admin.xml` with a regression test asserting that. A usable fixture needs a scan that runs to completion.
+
 
 ## How to run and test
 Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):

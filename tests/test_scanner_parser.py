@@ -134,3 +134,17 @@ def test_malformed_xml_raises():
 
     with pytest.raises(xml.etree.ElementTree.ParseError):
         parse_nmap_xml("<nmaprun><unclosed", "192.168.1.0/24")
+
+
+def test_interrupted_windows_capture_raises_parse_error():
+    # Real capture: `nmap -sV -O -oX atom.xml 192.168.0.250` in admin PowerShell
+    # (Windows nmap 7.80), interrupted with Ctrl+C after a couple of seconds.
+    # nmap wrote the header + <scaninfo> but no <host> block and no closing
+    # </nmaprun>, so the document is not parseable. Kept verbatim as evidence
+    # (AGENTS.md: never hand-complete a fixture); NetScope only stores finished
+    # scans, so this shape never reaches the parser in normal operation.
+    import xml.etree.ElementTree
+
+    with pytest.raises(xml.etree.ElementTree.ParseError):
+        parse_nmap_xml(fixture("atom_windows_admin.xml"), "192.168.0.250")
+
