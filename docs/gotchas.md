@@ -29,6 +29,12 @@ Written for the next session. Each one cost real debugging time.
 - **A `/24` is slow because silent addresses must time out.** ~290 s observed with 10 live hosts. The timeout is **per nmap pass** (`NETSCOPE_NMAP_TIMEOUT`, default 300 s) and there are two passes, so worst case ≈ 10 min before it errors with `nmap timed out after 300s`.
 - **Reverse DNS is partial, not absent.** Pi-hole on Atom answers PTR for many devices, so real scans show hostnames like `blocked.local` (2026-11-24 admin scan). The parser reads hostnames correctly since #30 — an empty column now means the name genuinely isn't resolvable. M8 (#23) solved naming with a **manual `device_names` table**: `display_name` priority is manual name → hostname → vendor+IP → bare IP; names live in their own table, are never touched by scans, and survive a v1→v2 schema upgrade (`PRAGMA user_version = 2`).
 
+## Store & presence semantics (since #31, schema v3)
+- **Presence is a sighting, not a port row.** `scan_devices(scan_id, identity, ip)` records one row per host **up** in that scan. Seen/absent, `last_seen_scan` and `diff_scans()` all read this table. Never infer presence from `device_ports` again — that caused all three #31 bugs (portless up host invisible, `last_seen_scan` stamped for devices not in the scan, `/32` scan marking every other device gone).
+- **`save_scan` upserts `devices` only for hosts present in the result**, so an absent device keeps its old `last_seen_scan`. A device up with zero open ports is still sighted (`status == "seen"`, `open_ports == []`).
+- **Diffs are target-aware.** `diff_scans()` compares only devices whose IP falls inside **both** scans' targets; `/api/diff` without ids uses the latest earlier scan with the **same target** and 404s ("no earlier scan with the same target to compare") instead of pairing a `/32` against a `/24`. Explicit `from_id`/`to_id` still works across targets.
+- **v2→v3 backfill is best effort**: it derives historical sightings from `device_ports`, so a historical up host with zero ports has no backfilled sighting. Only new scans capture that correctly.
+
 ## Frontend (app.js)
 - **Never render scan/DB strings as markup.** Hostname, OS guess, vendor and
   service product come from the LAN and are stored in SQLite, so markup in them
@@ -52,11 +58,12 @@ Written for the next session. Each one cost real debugging time.
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Merging workflow
-- **A squash-merge can silently drop doc hunks.** PR #46 was stacked on docs PR #45; after Falco merged both, `docs/decisions.md` lost three rows and `docs/STATUS.md` kept the old "next steps" order. Check every merge with `git diff <merged-branch> main` (the branch survives locally after the remote delete) and re-apply missing doc lines in a small docs PR.
+- **GitHub closing keywords fire on prose too.** PR #48's body said "close #34 evidence gap" — GitHub matched `close #34` and auto-closed issue #34 even though only evidence (docs + a fixture) shipped, not the fix. #34 had to be reopened. Only write `closes #N`/`fixes #N` when the PR actually fixes the issue; for evidence-only PRs write "see #N" or "evidence for #N".
+- **A squash-merge can silently drop doc hunks.** PR #46 was stacked on docs PR #45; after Falco merged both, `docs/decisions.md` lost three rows and `docs/STATUS.md` kept the old "next steps" order. Check every merge with `git diff <merged-branch> main` (the branch survives locally after the remote delete) and re-apply missing doc lines in a small docs PR. Same for stacked PRs touching the same doc files — verify both landed.
 - After Falco squash-merges and deletes a branch, `git pull --ff-only` fails while you are still on that branch ("no such ref was fetched") — `git checkout main` first, then `git fetch --prune`.
 
 ## Networking of this agent container
