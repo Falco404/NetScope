@@ -42,6 +42,10 @@ Written for the next session. Each one cost real debugging time.
 - **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
+## Merging workflow
+- **A squash-merge can silently drop doc hunks.** PR #46 was stacked on docs PR #45; after Falco merged both, `docs/decisions.md` lost three rows and `docs/STATUS.md` kept the old "next steps" order. Check every merge with `git diff <merged-branch> main` (the branch survives locally after the remote delete) and re-apply missing doc lines in a small docs PR.
+- After Falco squash-merges and deletes a branch, `git pull --ff-only` fails while you are still on that branch ("no such ref was fetched") — `git checkout main` first, then `git fetch --prune`.
+
 ## Networking of this agent container
 - The Hermes container is on the **Docker bridge** (`172.18.0.2`, gateway `172.18.0.1`), **not** the home LAN. It cannot scan `192.168.x.x`, and `GET /api/local-subnet` correctly reports `172.18.0.0/24` from inside it — that is not a bug, it is the documented `/24` + "machine's own subnet" caveat.
 - Home LAN facts: subnet `192.168.0.0/24`, router `192.168.0.1`, Atlas (Windows PC) `192.168.0.14`. Atom (DietPi homeserver) and Apollo (Fedora laptop) must appear in scan results.
