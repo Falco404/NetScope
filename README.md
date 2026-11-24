@@ -62,10 +62,19 @@ macOS. Settings are env vars, all optional:
 | `NETSCOPE_DB` | `netscope.db` | SQLite database path |
 | `NETSCOPE_HOST` | `127.0.0.1` | Bind address; `0.0.0.0` exposes the UI on the LAN |
 | `NETSCOPE_PORT` | `8000` | HTTP port |
+| `NETSCOPE_ALLOWED_HOSTS` | *(empty)* | Extra Host header names to trust (comma-separated) |
 | `NETSCOPE_NMAP_TIMEOUT` | `300` | Seconds per nmap pass; a `/24` with silent hosts can take minutes |
 
 On Windows PowerShell: `$env:NETSCOPE_PORT = "8000"` before the run command.
 On Linux or macOS (bash/zsh): `NETSCOPE_PORT=8000 uv run python -m netscope`.
+
+The server only answers requests whose `Host` header is a name it trusts:
+`localhost` and `127.0.0.1` always, plus `NETSCOPE_HOST` when you set one.
+Anything else gets `400 Invalid host header`, so a page reached through a
+rebound hostname cannot drive the scanner. If you bind `0.0.0.0` so a device
+on the LAN can open the UI, name the address that device uses in
+`NETSCOPE_ALLOWED_HOSTS` (e.g. `192.168.0.14`), because `0.0.0.0` is a bind
+address and never arrives as a `Host` header.
 
 Without admin/root, scans work but the **OS column stays empty** (`nmap -O`
 needs raw-socket privileges). On Linux and macOS, run the same command with

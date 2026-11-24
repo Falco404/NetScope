@@ -30,10 +30,12 @@ class FakeRunner:
         return True
 
 
-def make_client(tmp_path, block=None, subnet=None):
+def make_client(tmp_path, block=None, subnet=None, extra_hosts=()):
     store = SQLiteStore(tmp_path / "test.db")
     api = NetScopeAPI(store, NmapScanner(FakeRunner(block)), subnet_fn=lambda: subnet)
-    client = TestClient(build_app(api))
+    # TestClient sends Host: testserver, so the harness must allow it explicitly
+    # (build_app allows localhost/127.0.0.1 by default; extras are appended).
+    client = TestClient(build_app(api, extra_hosts=("testserver",) + tuple(extra_hosts)))
     return client, api, store
 
 
@@ -205,7 +207,7 @@ def test_runner_failure_surfaces_error_message(tmp_path):
 
     store = SQLiteStore(tmp_path / "test.db")
     api = NetScopeAPI(store, NmapScanner(BrokenRunner()))
-    client = TestClient(build_app(api))
+    client = TestClient(build_app(api, extra_hosts=("testserver",)))
     client.post("/api/scan", json={"target": "192.168.1.0/24"})
     status = wait_done(api)
     assert status["state"] == "error"
@@ -251,4 +253,55 @@ def test_local_subnet_endpoint_reports_detected_subnet(tmp_path):
 def test_local_subnet_endpoint_reports_null(tmp_path):
     client, _, store = make_client(tmp_path, subnet=None)
     assert client.get("/api/local-subnet").json() == {"target": None}
+    store.close()
+
+
+# --- #36: Host header hardening (DNS rebinding of the localhost UI) ---
+
+
+def test_foreign_host_header_rejected(tmp_path):
+    client, _, store = make_client(tmp_path)
+    for path in ("/api/devices", "/api/scans", "/api/scan/status", "/"):
+        r = client.get(path, headers={"Host": "evil.example.com"})
+        assert r.status_code == 400, f"{path} answered {r.status_code} to a foreign Host"
+        assert "Invalid host header" in r.text
+    store.close()
+
+
+def test_foreign_host_cannot_start_a_scan(tmp_path):
+    # DNS rebinding must not let a remote page drive the scanner either.
+    client, api, store = make_client(tmp_path, subnet="192.168.0.0/24")
+    r = client.post(
+        "/api/scan", json={"target": "192.168.0.0/24"}, headers={"Host": "evil.example.com"}
+    )
+    assert r.status_code == 400, f"scan POST answered {r.status_code} to a foreign Host"
+    assert api.status()["state"] == "idle", "no scan started"
+    store.close()
+
+
+def test_loopback_host_headers_still_work(tmp_path):
+    client, _, store = make_client(tmp_path)
+    for host in ("localhost", "127.0.0.1", "127.0.0.1:8000", "LOCALHOST"):
+        r = client.get("/api/scans", headers={"Host": host})
+        assert r.status_code == 200, f"loopback Host {host!r} was rejected"
+    store.close()
+
+
+def test_configured_bind_host_is_allowed(tmp_path):
+    # LAN bind (NETSCOPE_HOST=0.0.0.0 or an explicit address): the configured
+    # host must be allowed, anything else still rejected.
+    client, _, store = make_client(tmp_path, extra_hosts=("192.168.0.1",))
+    assert client.get("/api/scans", headers={"Host": "192.168.0.1:8000"}).status_code == 200
+    assert client.get("/api/scans", headers={"Host": "evil.example.com"}).status_code == 400
+    store.close()
+
+
+def test_build_app_default_denies_foreign_host(tmp_path):
+    # The default app (what `python -m netscope` builds) must deny by default;
+    # a caller forgetting to pass extra hosts must not silently open the UI.
+    store = SQLiteStore(tmp_path / "default.db")
+    api = NetScopeAPI(store, NmapScanner(FakeRunner()), subnet_fn=lambda: None)
+    client = TestClient(build_app(api))
+    assert client.get("/api/scans", headers={"Host": "localhost"}).status_code == 200
+    assert client.get("/api/scans", headers={"Host": "evil.example.com"}).status_code == 400
     store.close()
