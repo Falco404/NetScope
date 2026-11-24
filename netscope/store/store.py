@@ -10,6 +10,9 @@ from __future__ import annotations
 import ipaddress
 import os
 import sqlite3
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -120,33 +123,77 @@ class ScanDiff:
 class SQLiteStore:
     def __init__(self, path: str | None = None) -> None:
         self.path = path or db_path()
-        # The API runs scans in a background thread that writes here, so the
-        # connection is shared across threads (SQLite serializes internally).
-        self.conn = sqlite3.connect(self.path, check_same_thread=False)
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        version = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        # #37: one connection PER THREAD. A single shared connection means every
+        # request thread reads — and can commit — the scan thread's open
+        # transaction, so `set_device_name` could commit a half-written
+        # `save_scan`. check_same_thread=False stays because close() runs on a
+        # different thread than the one that opened some connections.
+        self._local = threading.local()
+        self._conns: list[sqlite3.Connection] = []
+        self._write_lock = threading.Lock()
+        conn = self.conn
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
         if version == 0:
-            self.conn.executescript(_SCHEMA)
+            conn.executescript(_SCHEMA)
         elif version < SCHEMA_VERSION:
             # In-place upgrades: v1 databases get device_names (M8), and every
             # older database gets scan_devices (#31) backfilled from device_ports
             # so stored scans keep their presence data.
             if version < 2:
-                self.conn.executescript(_DEVICE_NAMES_TABLE)
-            self.conn.executescript(_SCAN_DEVICES_TABLE)
-            self.conn.executescript(_BACKFILL_SCAN_DEVICES)
+                conn.executescript(_DEVICE_NAMES_TABLE)
+            conn.executescript(_SCAN_DEVICES_TABLE)
+            conn.executescript(_BACKFILL_SCAN_DEVICES)
         if version != SCHEMA_VERSION:
-            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-            self.conn.commit()
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            conn.commit()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path, check_same_thread=False)
+        # foreign_keys/journal_mode/busy_timeout are per-connection settings, so
+        # every thread's connection needs them. WAL lets readers run while the
+        # scan thread writes; busy_timeout turns a brief writer collision into
+        # a wait instead of an OperationalError.
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
+        self._conns.append(conn)
+        return conn
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """This thread's connection, created on first use."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._connect()
+            self._local.conn = conn
+        return conn
 
     def close(self) -> None:
-        self.conn.close()
+        for conn in self._conns:
+            conn.close()
+        self._conns.clear()
 
     def __enter__(self) -> "SQLiteStore":
         return self
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    @contextmanager
+    def _write_txn(self) -> Iterator[None]:
+        """Serialize writers and end the transaction cleanly (#37).
+
+        Without the rollback, a failed write leaves an open transaction on that
+        thread's connection: the uncommitted rows block every other writer until
+        busy_timeout gives up, and a later commit on that connection would
+        publish them.
+        """
+        with self._write_lock:
+            try:
+                yield
+            except BaseException:
+                self.conn.rollback()
+                raise
 
     def save_scan(
         self,
@@ -155,7 +202,23 @@ class SQLiteStore:
         duration_seconds: float | None = None,
         ts: str | None = None,
     ) -> tuple[int, dict[str, Device]]:
-        """Persist one scan + update device rows. Returns (scan_id, merged devices)."""
+        """Persist one scan + update device rows. Returns (scan_id, merged devices).
+
+        All writes share one lock (#37): with per-thread connections two
+        concurrent writers would otherwise interleave transactions and can hit
+        SQLITE_BUSY. Readers never take the lock — WAL gives each of them a
+        consistent snapshot of committed data while a scan write is open.
+        """
+        with self._write_txn():
+            return self._write_scan(result, devices, duration_seconds, ts)
+
+    def _write_scan(
+        self,
+        result: ScanResult,
+        devices: dict[str, Device],
+        duration_seconds: float | None = None,
+        ts: str | None = None,
+    ) -> tuple[int, dict[str, Device]]:
         ts = ts or datetime.now(UTC).isoformat()
         cur = self.conn.execute(
             "INSERT INTO scans (ts, target, duration_seconds) VALUES (?, ?, ?)",
@@ -402,27 +465,33 @@ class SQLiteStore:
             raise ValueError("device name must not be empty")
         if len(name) > self.MAX_NAME_LEN:
             raise ValueError(f"device name must be at most {self.MAX_NAME_LEN} characters")
-        if (
-            self.conn.execute("SELECT 1 FROM devices WHERE identity = ?", (identity,)).fetchone()
-            is None
-        ):
-            raise KeyError(identity)
-        self.conn.execute(
-            """
-            INSERT INTO device_names (identity, name) VALUES (?, ?)
-            ON CONFLICT(identity) DO UPDATE SET name = excluded.name
-            """,
-            (identity, name),
-        )
-        self.conn.commit()
+        with self._write_txn():
+            if (
+                self.conn.execute(
+                    "SELECT 1 FROM devices WHERE identity = ?", (identity,)
+                ).fetchone()
+                is None
+            ):
+                raise KeyError(identity)
+            self.conn.execute(
+                """
+                INSERT INTO device_names (identity, name) VALUES (?, ?)
+                ON CONFLICT(identity) DO UPDATE SET name = excluded.name
+                """,
+                (identity, name),
+            )
+            self.conn.commit()
         return name
 
     def clear_device_name(self, identity: str) -> None:
         """Remove a manual label; display falls back to hostname/vendor/IP."""
-        if (
-            self.conn.execute("SELECT 1 FROM devices WHERE identity = ?", (identity,)).fetchone()
-            is None
-        ):
-            raise KeyError(identity)
-        self.conn.execute("DELETE FROM device_names WHERE identity = ?", (identity,))
-        self.conn.commit()
+        with self._write_txn():
+            if (
+                self.conn.execute(
+                    "SELECT 1 FROM devices WHERE identity = ?", (identity,)
+                ).fetchone()
+                is None
+            ):
+                raise KeyError(identity)
+            self.conn.execute("DELETE FROM device_names WHERE identity = ?", (identity,))
+            self.conn.commit()
