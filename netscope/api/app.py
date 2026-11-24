@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from netscope.device import Device
 from netscope.local_subnet import local_subnet as _detect_local_subnet
@@ -26,6 +27,13 @@ from netscope.store import SQLiteStore
 from netscope.target import IllegalTargetError, validate_target
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+# #36: the UI only answers requests whose Host header is a trusted name.
+# Loopback by default; a LAN bind must name the hosts clients actually use
+# (0.0.0.0 is a bind address, never a Host header). Starlette compares the
+# hostname with the port stripped and case-insensitively, and answers 400
+# "Invalid host header" on a mismatch.
+DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
 
 
 @dataclass
@@ -129,8 +137,11 @@ class NetScopeAPI:
             }
 
 
-def build_app(api: NetScopeAPI) -> FastAPI:
+def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
     app = FastAPI(title="NetScope", docs_url=None, redoc_url=None)
+    # Outermost middleware: a foreign Host header never reaches a route, so
+    # DNS rebinding cannot drive the unauthenticated localhost UI (#36).
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[*DEFAULT_ALLOWED_HOSTS, *extra_hosts])
 
     @app.get("/api/scans")
     def scans() -> list[dict[str, Any]]:

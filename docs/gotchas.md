@@ -65,10 +65,16 @@ Written for the next session. Each one cost real debugging time.
   call in app.js (paren-balanced) and requires `...`-spread, a direct `el(...)`,
   or an empty clear-call (`tbody.replaceChildren()` is legitimate).
 
+## Server & Host header (#36)
+- **A foreign `Host` header must be rejected, and the test harness must not hide that.** `build_app` installs Starlette's `TrustedHostMiddleware`; it compares the hostname **with the port stripped and case-insensitively**, so allowing `127.0.0.1` also allows `127.0.0.1:8000`. Mismatch → `400 Invalid host header` before any route runs (GET *and* `POST /api/scan`).
+- **`TestClient` sends `Host: testserver`**, so every app-level test needs `build_app(api, extra_hosts=("testserver",))` — `make_client` does it in one place. A test that builds its own `TestClient(build_app(api))` silently gets 400s and fails as "state idle", not as a host error.
+- **`NETSCOPE_HOST=0.0.0.0` does not make LAN clients trusted** — `0.0.0.0` is a bind address and never arrives as a `Host` header. A LAN device reaching the UI must have its own address/name in `NETSCOPE_ALLOWED_HOSTS` (comma-separated, whitespace-tolerant). Verified live 2026-11-24: LAN bind allowed `192.168.0.14:8000`/`atom.local`, still 400'd `evil.example.com`.
+- **IPv6 loopback `[::1]:8000` is rejected** by the default allowlist (Starlette's host parse of the bracketed literal doesn't match `::1`). If you ever open the UI that way, add it explicitly.
+
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) → 111 (#36 Host allowlist: 5 API tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Merging workflow
