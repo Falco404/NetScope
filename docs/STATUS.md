@@ -18,19 +18,19 @@ latest one is recorded as acceptance evidence on issue #10.
 - **M5 SQLite store** (#16): `scans` / `devices` / `device_ports`, `PRAGMA user_version = 1`, COALESCE upsert, `diff_scans()`.
 - **M6 web app** (#17): API (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`, `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`) + static UI, one scan at a time (409), error surfaced in UI, `elapsed_seconds`/`timeout_seconds`, `NETSCOPE_NMAP_TIMEOUT`.
 - **Fix: real port numbers** (#18): parser reads nmap's `portid` attribute (was reading a non-existent `port` attribute, so every port showed as `0/tcp`); fixtures corrected; regression test added.
-- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`. **Acceptance evidence recorded** 2026-11-23: re-scan of `192.168.0.0/24` shows real port numbers (no `0/tcp`), vendors for Chromecast/TV/KVM, 11 devices — posted to issue #10 (comment 7108419834). Hostnames/OS still empty (no PTR; `-O` needs raw-socket privileges).
+- **M7 lab integration** (#19): service pass now `nmap -sV -O` (OS guess), UI prefills the target from `GET /api/local-subnet` instead of the hardcoded `192.168.1.0/24`. **Acceptance evidence recorded** 2026-11-23: re-scan of `192.168.0.0/24` shows real port numbers (no `0/tcp`), vendors for Chromecast/TV/KVM, 11 devices — posted to issue #10 (comment 7108419834). Hostnames were empty then for two reasons (parser bug #30, fixed in PR #44; Pi-hole PTR answers now appear); the OS column stayed empty until the privileged run (see #34).
 - **M8 device naming** (#23, merged `ddd4fc4`): manual `device_names` table (schema v2, v1 DBs upgraded in place), `PUT`/`DELETE /api/devices/<identity>/name`, editable name field in the device detail UI; manual name beats hostname/vendor/IP in the list and survives later scans. Acceptance evidence posted to #23.
 - **IDEA.md** (#26): Hermes desktop project idea file is **gitignored** (repo `.gitignore` + global excludes file), never committed.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
 
 ## In progress
-- **#30 parser hostname/OS fix** — branch `hermes/parser-hostname-os`, PR open. Real-shaped XML now yields hostname + OS; fixtures reshaped to real nesting (pending: replace with real captured XML — see Known issues). AGENTS.md gained the "capture fixtures from real output" rule.
+Nothing merged-pending: **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). Fixture capture still pending (see Known issues).
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#32** Frontend: stop rendering scan data with `innerHTML` (XSS) — lands before #30 goes live.
+1. **#32** Frontend: stop rendering scan data with `innerHTML` (XSS) — now matters more, since #30 makes LAN hostnames reach the UI.
 2. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
 3. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
-4. **#34** `nmap -O` root-privilege check **run by Falco on Apollo** (`nmap -sV -O 127.0.0.1; echo $?`) — implement conditional `-O` only if confirmed.
+4. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
 5. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
 6. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
 7. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
@@ -46,10 +46,11 @@ on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
 run only on the Windows PC or Apollo. macOS support is documented in the
 README but **never executed on a Mac** (reasoned from portable code + Homebrew
 nmap); `winget install nmap` package id likewise unverified from the container.
-**Fixtures are still hand-shaped, not captured**: the container has no nmap,
-so `tests/fixtures/*.xml` were reshaped to real nesting rather than replaced
-with captured output — swap in a real `nmap -oX -` capture from the home LAN
-when one is available.
+**Fixture capture is still pending**: the container has no nmap, and the
+2026-11-24 Windows capture attempt (`nmap -sV -O -oX - 192.168.0.250 > atom.xml`)
+produced only the XML preamble in UTF-16-LE — `-O` quit unprivileged before any
+`<host>` block. Retry from an **admin** PowerShell with `nmap -sV -O -oX atom.xml
+192.168.0.250` (nmap writes UTF-8 itself) and I'll wire it into the tests.
 
 ## How to run and test
 Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
