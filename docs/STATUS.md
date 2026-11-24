@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 87 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 89 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -58,7 +58,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 87 passed
+uv run pytest                 # 89 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```

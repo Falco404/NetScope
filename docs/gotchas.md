@@ -6,7 +6,7 @@ Written for the next session. Each one cost real debugging time.
 - **Ports use the `portid` attribute, not `port`.** `<port protocol="tcp" portid="443">`. Reading `port` returns `None` and produced `0/tcp` for every device in a real scan. A `<port>` with no `portid` is skipped — never default it to 0.
 - **Hostnames nest under `<hostnames>`, not as a direct `<host>` child.** `<hostnames><hostname name="atom.lan" type="PTR"/></hostnames>`. `host.find("hostname[@type='PTR']")` finds nothing — hostname was always `None` on real scans until #30. Prefer `type="PTR"` (reverse DNS), then `user`, then any.
 - **OS matches nest as `<os><osmatch name="Linux 5.0 - 5.14">`, not `<os><osclass>`.** The guess is the first `osmatch`'s `name`; `<osclass>` lives *inside* `osmatch` and only carries attributes (`osfamily`, e.g. "Linux") as fallback. `<osclass>` has no `osclass` attribute — reading one gives `None`.
-- **ElementTree quirks:** `findall("a/@attr")` returns nothing (use `element.get("attr")`); path expressions **cannot filter by attribute** (`find("hostnames/hostname[@type='PTR']")` matches the first element regardless of type) — select with `findall(...)` + explicit `get("type")`; and `elem or elem` raises a truth-value `DeprecationWarning` — always compare with `is None`.
+- **ElementTree quirks:** `findall("a/@attr")` returns nothing (use `element.get("attr")`); `elem or elem` raises a truth-value `DeprecationWarning` — always compare with `is None`. Attribute predicates in paths **do** work: `find("hostnames/hostname[@type='PTR']")` returns the PTR entry, verified on Python 3.12, 3.13 and 3.14. An earlier note claiming they don't was wrong — the hostname bug (#30) was purely the missing `<hostnames>` nesting, so the parser's explicit `findall` + `get("type")` selection is a style choice, not a workaround.
 - **Fixtures must mirror real nmap output.** `tests/fixtures/*.xml` are hand-written; ours invented `port="..."` **and** the hostname/OS nesting, so every test passed while real scans were broken (83 green, three parser bugs). When adding a fixture, copy real `-oX -` output, don't guess structure.
 - **Capture XML with `-oX <file>`, not a shell redirect.** `nmap ... -oX - > atom.xml` in PowerShell writes **UTF-16-LE** (nmap's own output is UTF-8) and, when `-O` quits unprivileged, the file ends after the `<scaninfo>` line — no `<host>`, no closing tag (our 2026-11-24 capture did exactly that, 8762 bytes). Let nmap write the file itself: `nmap -sV -O -oX atom.xml 192.168.0.250`.
 - **`nmap -O` needs raw-socket privileges and may abort the whole scan, not just skip the OS column.** Confirmed on Apollo/Fedora 2026-11-24: `nmap -sV -O 127.0.0.1; echo $?` → `TCP/IP fingerprinting (for OS scan) requires root privileged. QUITTING!`, exit **1**. Same message and quit from a regular PowerShell on Windows (nmap 7.80) when run directly. **Unresolved discrepancy:** two unprivileged NetScope scans on 2026-11-23 completed (236–272 s) even though the engine passes `-O` — NetScope may be running a different nmap binary than the CLI test. #34 will make `-O` conditional on a privilege probe so both behaviours are safe.
@@ -16,10 +16,30 @@ Written for the next session. Each one cost real debugging time.
 - **A `/24` is slow because silent addresses must time out.** ~290 s observed with 10 live hosts. The timeout is **per nmap pass** (`NETSCOPE_NMAP_TIMEOUT`, default 300 s) and there are two passes, so worst case ≈ 10 min before it errors with `nmap timed out after 300s`.
 - **Reverse DNS is partial, not absent.** Pi-hole on Atom answers PTR for many devices, so real scans show hostnames like `blocked.local` (2026-11-24 admin scan). The parser reads hostnames correctly since #30 — an empty column now means the name genuinely isn't resolvable. M8 (#23) solved naming with a **manual `device_names` table**: `display_name` priority is manual name → hostname → vendor+IP → bare IP; names live in their own table, are never touched by scans, and survive a v1→v2 schema upgrade (`PRAGMA user_version = 2`).
 
+## Frontend (app.js)
+- **Never render scan/DB strings as markup.** Hostname, OS guess, vendor and
+  service product come from the LAN and are stored in SQLite, so markup in them
+  is stored XSS — a hostile device can answer PTR with
+  `<img src=x onerror=...>` and run script in the UI. All cells go through
+  `el(tag, className, text)` (`textContent` + `replaceChildren`);
+  `tests/test_frontend_xss.py` fails the build if `innerHTML`, `outerHTML`,
+  `insertAdjacentHTML` or `document.write` ever appear in `app.js`.
+- **Verify frontend changes in a real DOM, not with `node --check`.** Syntax
+  checking proves nothing about rendering. Reproduce offline: build the app with
+  a fake runner whose `run()` returns XML carrying markup in hostname / product
+  / osmatch, and point `netscope.api.app.STATIC_DIR` at a copy of the *old*
+  `app.js` to get a RED baseline (jsdom with `runScripts: "dangerously"` works;
+  jsdom has no `fetch`, so shim `window.fetch` before parse). Real-browser
+  result 2026-11-24: old render executed the payload (`window.__xss == 1`, 2
+  injected tags); fixed render shows literal text, 0 injected tags, no
+  execution.
+- **The browser harness's `js()` returns `{}` for some expressions** (flaky
+  eval). Write results into `document.title` and read them with `page_info()`.
+
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Networking of this agent container
