@@ -21,7 +21,7 @@ winget install astral-sh.uv          # uv
 winget install nmap                  # or run the installer from nmap.org
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync                              # installs the project + dev tools (pytest, ruff)
+uv sync --extra dev                  # installs the project + dev tools (pytest, ruff)
 uv run pytest                        # verify: all tests pass, no network needed
 ```
 
@@ -34,7 +34,7 @@ sudo dnf install nmap                             # Fedora
 
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync
+uv sync --extra dev
 uv run pytest
 ```
 
@@ -44,7 +44,7 @@ uv run pytest
 brew install uv nmap    # uv downloads a Python 3.12+ interpreter itself if the system Python is older
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync
+uv sync --extra dev
 uv run pytest
 ```
 
