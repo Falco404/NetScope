@@ -86,7 +86,6 @@ SELECT DISTINCT scan_id, identity, ip FROM device_ports;
 """
 
 
-
 def db_path() -> str:
     return os.environ.get("NETSCOPE_DB", DEFAULT_DB_PATH)
 
@@ -140,7 +139,6 @@ class SQLiteStore:
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self.conn.commit()
 
-
     def close(self) -> None:
         self.conn.close()
 
@@ -165,7 +163,14 @@ class SQLiteStore:
         )
         scan_id = int(cur.lastrowid or 0)
 
-        merged = merge_scan(devices, result.hosts, scan_id=scan_id)
+        merged, rekeys = merge_scan(devices, result.hosts, scan_id=scan_id)
+
+        # #35: an IP-keyed device that just learned its MAC re-keys. Migrate
+        # its rows (manual name, port history, sightings) BEFORE the upserts
+        # below, in the same transaction as the scan write, so history follows
+        # the machine instead of orphaning under the old IP key.
+        for old_identity, new_identity in rekeys:
+            self._rekey_identity(old_identity, new_identity)
 
         # Presence is a sighting (#31): every host that responded to THIS scan
         # gets a scan_devices row, even with zero open ports. Resolve each up
@@ -222,6 +227,33 @@ class SQLiteStore:
         self.conn.commit()
         return scan_id, merged
 
+    def _rekey_identity(self, old: str, new: str) -> None:
+        """Move a device row from an IP key to its MAC key (#35).
+
+        Order matters with ``PRAGMA foreign_keys = ON``: create the new parent
+        first so child updates never dangle, migrate children, then drop the
+        old parent. Runs inside save_scan's transaction, so a failure rolls
+        the whole scan write back.
+        """
+        self.conn.execute(
+            """
+            INSERT INTO devices (identity, ip, hostname, mac, vendor, os_guess, last_seen_scan)
+            SELECT ?, ip, hostname, ?, vendor, os_guess, last_seen_scan
+            FROM devices WHERE identity = ?
+            """,
+            (new, new, old),
+        )
+        self.conn.execute("UPDATE device_ports SET identity = ? WHERE identity = ?", (new, old))
+        self.conn.execute("UPDATE scan_devices SET identity = ? WHERE identity = ?", (new, old))
+        self.conn.execute(
+            """
+            INSERT OR IGNORE INTO device_names (identity, name)
+            SELECT ?, name FROM device_names WHERE identity = ?
+            """,
+            (new, old),
+        )
+        self.conn.execute("DELETE FROM device_names WHERE identity = ?", (old,))
+        self.conn.execute("DELETE FROM devices WHERE identity = ?", (old,))
 
     def list_scans(self) -> list[ScanSummary]:
         rows = self.conn.execute(
@@ -357,7 +389,6 @@ class SQLiteStore:
         )
         return ScanDiff(new_devices=new, gone_devices=gone, changed_devices=changed)
 
-
     MAX_NAME_LEN = 64
 
     def set_device_name(self, identity: str, name: str) -> str:
@@ -371,9 +402,10 @@ class SQLiteStore:
             raise ValueError("device name must not be empty")
         if len(name) > self.MAX_NAME_LEN:
             raise ValueError(f"device name must be at most {self.MAX_NAME_LEN} characters")
-        if self.conn.execute(
-            "SELECT 1 FROM devices WHERE identity = ?", (identity,)
-        ).fetchone() is None:
+        if (
+            self.conn.execute("SELECT 1 FROM devices WHERE identity = ?", (identity,)).fetchone()
+            is None
+        ):
             raise KeyError(identity)
         self.conn.execute(
             """
@@ -387,9 +419,10 @@ class SQLiteStore:
 
     def clear_device_name(self, identity: str) -> None:
         """Remove a manual label; display falls back to hostname/vendor/IP."""
-        if self.conn.execute(
-            "SELECT 1 FROM devices WHERE identity = ?", (identity,)
-        ).fetchone() is None:
+        if (
+            self.conn.execute("SELECT 1 FROM devices WHERE identity = ?", (identity,)).fetchone()
+            is None
+        ):
             raise KeyError(identity)
         self.conn.execute("DELETE FROM device_names WHERE identity = ?", (identity,))
         self.conn.commit()
