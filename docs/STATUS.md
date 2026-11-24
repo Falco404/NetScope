@@ -28,16 +28,16 @@ latest one is recorded as acceptance evidence on issue #10.
 - **Fix: presence from per-scan sightings** (#31, PR #49, `f47c9cd`): `scan_devices` table (schema v3, v2 DBs upgraded in place + backfilled from `device_ports`); seen/absent, `last_seen_scan` and `diff_scans()` now derive from explicit per-scan sightings, and the diff only compares devices inside both scans' targets (`/api/diff` default previous scan must share the target). 97 tests pass, ruff clean.
 - **Windows `-O` evidence** (PR #48, `856ae9f`): privilege observations plus a verbatim interrupted-capture fixture with a `ParseError` regression test.
 - **Handoff state** (PR #47, `14fbb6a`): restored doc rows dropped by stacked squash-merge.
+- **Conditional `-O` probe** (#34, PR #52): before the service pass, a quick `nmap -sV -O 127.0.0.1` probe checks whether OS fingerprinting works without privileges. If the probe fails the service pass retries without `-O` so the scan still completes (just without OS guesses). The UI shows "OS detection unavailable (requires admin/root)" when the probe fails. 99 tests pass, ruff clean.
 
 ## In progress
 Nothing merged-pending.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
-2. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
-3. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
-4. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
-5. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
+1. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+2. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+3. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
+4. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;

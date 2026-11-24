@@ -26,6 +26,9 @@ class FakeRunner:
         name = "nmap_discovery.xml" if "-sn" in args else "nmap_service.xml"
         return (FIXTURES / name).read_text()
 
+    def probe_os(self) -> bool:
+        return True
+
 
 def make_client(tmp_path, block=None, subnet=None):
     store = SQLiteStore(tmp_path / "test.db")
