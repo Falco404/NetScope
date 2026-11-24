@@ -7,6 +7,7 @@ extend `_SCHEMA` if the shape changes (no migration framework at this stage).
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import sqlite3
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from datetime import UTC, datetime
 from netscope.device import Device, merge_scan
 from netscope.scanner.models import ScanResult
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_DB_PATH = "netscope.db"
 
 _SCHEMA = """
@@ -47,7 +48,14 @@ CREATE TABLE device_ports (
     service TEXT,
     version TEXT
 );
+CREATE TABLE scan_devices (
+    scan_id INTEGER NOT NULL REFERENCES scans(id),
+    identity TEXT NOT NULL REFERENCES devices(identity),
+    ip TEXT NOT NULL,               -- presence: this identity responded in this scan (#31)
+    PRIMARY KEY (scan_id, identity)
+);
 CREATE INDEX idx_device_ports_scan ON device_ports(scan_id);
+CREATE INDEX idx_scan_devices_scan ON scan_devices(scan_id);
 """
 
 # Added in schema v2 (M8): exists on its own so v1 databases can be upgraded
@@ -59,9 +67,36 @@ CREATE TABLE IF NOT EXISTS device_names (
 );
 """
 
+# Added in schema v3 (#31): presence is a sighting, not an open port. Older
+# databases backfill from device_ports — best effort: a device that was up
+# with zero ports in an old scan cannot be recovered, but every stored port
+# row implies a sighting.
+_SCAN_DEVICES_TABLE = """
+CREATE TABLE IF NOT EXISTS scan_devices (
+    scan_id INTEGER NOT NULL REFERENCES scans(id),
+    identity TEXT NOT NULL REFERENCES devices(identity),
+    ip TEXT NOT NULL,
+    PRIMARY KEY (scan_id, identity)
+);
+CREATE INDEX IF NOT EXISTS idx_scan_devices_scan ON scan_devices(scan_id);
+"""
+_BACKFILL_SCAN_DEVICES = """
+INSERT OR IGNORE INTO scan_devices (scan_id, identity, ip)
+SELECT DISTINCT scan_id, identity, ip FROM device_ports;
+"""
+
+
 
 def db_path() -> str:
     return os.environ.get("NETSCOPE_DB", DEFAULT_DB_PATH)
+
+
+def _ip_in_target(ip: str, target: str) -> bool:
+    """True if ip lies inside the CIDR target (False if either is unparseable)."""
+    try:
+        return ipaddress.ip_address(ip) in ipaddress.ip_network(target, strict=False)
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -74,10 +109,12 @@ class ScanSummary:
 
 @dataclass(frozen=True)
 class ScanDiff:
-    """Difference between two stored scans."""
+    """Difference between two stored scans, by sightings (#31): identities
+    sighted in b but not a, sighted in a but not b, sighted in both with a
+    different open-port set. Only devices inside both scans' targets count."""
 
-    new_devices: tuple[str, ...]  # identity keys that appear in b but not a
-    gone_devices: tuple[str, ...]  # in a but not b
+    new_devices: tuple[str, ...]  # identity keys sighted in b but not a
+    gone_devices: tuple[str, ...]  # sighted in a but not b
     changed_devices: tuple[str, ...]  # in both, port set differs
 
 
@@ -92,11 +129,17 @@ class SQLiteStore:
         if version == 0:
             self.conn.executescript(_SCHEMA)
         elif version < SCHEMA_VERSION:
-            # v1 databases get the device_names table added in place (M8).
-            self.conn.executescript(_DEVICE_NAMES_TABLE)
+            # In-place upgrades: v1 databases get device_names (M8), and every
+            # older database gets scan_devices (#31) backfilled from device_ports
+            # so stored scans keep their presence data.
+            if version < 2:
+                self.conn.executescript(_DEVICE_NAMES_TABLE)
+            self.conn.executescript(_SCAN_DEVICES_TABLE)
+            self.conn.executescript(_BACKFILL_SCAN_DEVICES)
         if version != SCHEMA_VERSION:
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self.conn.commit()
+
 
     def close(self) -> None:
         self.conn.close()
@@ -123,7 +166,24 @@ class SQLiteStore:
         scan_id = int(cur.lastrowid or 0)
 
         merged = merge_scan(devices, result.hosts, scan_id=scan_id)
-        for device in merged.values():
+
+        # Presence is a sighting (#31): every host that responded to THIS scan
+        # gets a scan_devices row, even with zero open ports. Resolve each up
+        # host to the identity merge_scan keyed it under (MAC if the device
+        # already has one, else IP) so a sighting never forks or misses a row.
+        sighted: dict[str, Device] = {}
+        for host in result.hosts:
+            if not host.up:
+                continue
+            mac = host.mac.upper() if host.mac else None
+            for candidate in (mac, host.ip):
+                if candidate is not None and candidate in merged:
+                    sighted[candidate] = merged[candidate]
+                    break
+
+        # Only sighted devices touch the devices table: a device absent from
+        # this scan keeps its previous last_seen_scan (#31 bug 2).
+        for identity, device in sighted.items():
             self.conn.execute(
                 """
                 INSERT INTO devices (identity, ip, hostname, mac, vendor, os_guess, last_seen_scan)
@@ -146,6 +206,10 @@ class SQLiteStore:
                     scan_id,
                 ),
             )
+            self.conn.execute(
+                "INSERT INTO scan_devices (scan_id, identity, ip) VALUES (?, ?, ?)",
+                (scan_id, identity, device.ip),
+            )
             for p in device.open_ports:
                 self.conn.execute(
                     """
@@ -157,6 +221,7 @@ class SQLiteStore:
                 )
         self.conn.commit()
         return scan_id, merged
+
 
     def list_scans(self) -> list[ScanSummary]:
         rows = self.conn.execute(
@@ -193,17 +258,18 @@ class SQLiteStore:
         ]
 
     def devices_in_scan(self, scan_id: int) -> list[Device]:
-        """Devices that had at least one open port in this scan."""
+        """Devices sighted (up) in this scan — ports are irrelevant (#31)."""
         rows = self.conn.execute(
             """
             SELECT DISTINCT d.identity, d.ip, d.hostname, d.mac, d.vendor, d.os_guess, n.name
             FROM devices d
             LEFT JOIN device_names n ON n.identity = d.identity
-            JOIN device_ports p ON p.identity = d.identity
-            WHERE p.scan_id = ? ORDER BY d.identity
+            JOIN scan_devices sd ON sd.identity = d.identity AND sd.scan_id = ?
+            ORDER BY d.identity
             """,
             (scan_id,),
         ).fetchall()
+
         return [
             Device(
                 identity=r[0],
@@ -237,13 +303,60 @@ class SQLiteStore:
             (identity,),
         ).fetchall()
 
+    def sightings(self, scan_id: int) -> dict[str, str]:
+        """identity -> ip for every device sighted (up) in this scan (#31)."""
+        rows = self.conn.execute(
+            "SELECT identity, ip FROM scan_devices WHERE scan_id = ?", (scan_id,)
+        ).fetchall()
+        return dict(rows)
+
+    def scan_target(self, scan_id: int) -> str | None:
+        row = self.conn.execute("SELECT target FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        return row[0] if row is not None else None
+
+    def latest_scan_covering(self, ip: str) -> int | None:
+        """Newest stored scan whose target contains this IP (None if none).
+
+        Presence for a device is judged against the latest scan that could
+        have seen it — a single-IP scan of another device says nothing about
+        this one (#31).
+        """
+        for s in self.list_scans():  # newest first
+            if _ip_in_target(ip, s.target):
+                return s.id
+        return None
+
     def diff_scans(self, a_id: int, b_id: int) -> ScanDiff:
-        a = self.scan_ports(a_id)
-        b = self.scan_ports(b_id)
-        new = tuple(sorted(set(b) - set(a)))
-        gone = tuple(sorted(set(a) - set(b)))
-        changed = tuple(sorted(k for k in set(a) & set(b) if a[k] != b[k]))
+        """Diff two scans by *sightings*, not ports (#31).
+
+        A device is gone only if it was sighted in a and not in b, and only
+        when its IP falls inside BOTH scans' targets — a single-IP scan after
+        a /24 must not report every other device as disappeared or new.
+        "changed" stays a port-set comparison for devices sighted in both.
+        """
+        sa, sb = self.sightings(a_id), self.sightings(b_id)
+        ta, tb = self.scan_target(a_id), self.scan_target(b_id)
+
+        def covered(ip: str) -> bool:
+            return (
+                ta is not None
+                and tb is not None
+                and _ip_in_target(ip, ta)
+                and _ip_in_target(ip, tb)
+            )
+
+        new = tuple(sorted(i for i in sb.keys() - sa.keys() if covered(sb[i])))
+        gone = tuple(sorted(i for i in sa.keys() - sb.keys() if covered(sa[i])))
+        ports_a, ports_b = self.scan_ports(a_id), self.scan_ports(b_id)
+        changed = tuple(
+            sorted(
+                i
+                for i in sa.keys() & sb.keys()
+                if ports_a.get(i, frozenset()) != ports_b.get(i, frozenset())
+            )
+        )
         return ScanDiff(new_devices=new, gone_devices=gone, changed_devices=changed)
+
 
     MAX_NAME_LEN = 64
 
