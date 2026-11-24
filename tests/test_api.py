@@ -78,7 +78,7 @@ def test_scan_flow_and_devices(tmp_path):
     atom = next(d for d in devices if d["name"] == "atom")
     assert atom["status"] == "seen"
     assert atom["open_ports"] == ["22/tcp", "80/tcp"]
-    assert atom["os_guess"] == "Linux"
+    assert atom["os_guess"] == "Linux 2.6.32 - 3.x"
 
     detail = client.get("/api/devices/AA:BB:CC:DD:EE:01").json()
     assert detail["hostname"] == "atom"

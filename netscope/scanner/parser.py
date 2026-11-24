@@ -25,17 +25,31 @@ def parse_nmap_xml(xml_text: str, target: str) -> ScanResult:
         status_el = host.find("status")
         up = status_el is not None and status_el.get("state") == "up"
 
-        hostname_el = host.find("hostname[@type='PTR']")
+        # Real nmap nests hostnames under <hostnames>. PTR (reverse DNS) is the
+        # trustworthy one, so prefer it, then a user-set entry, then any.
+        # ElementTree cannot filter by attribute in a path expression, so
+        # select explicitly.
+        hostnames = host.findall("hostnames/hostname")
+        hostname_el = next((h for h in hostnames if h.get("type") == "PTR"), None)
+        if hostname_el is None:
+            hostname_el = next((h for h in hostnames if h.get("type") == "user"), None)
+        if hostname_el is None and hostnames:
+            hostname_el = hostnames[0]
         hostname = hostname_el.get("name") if hostname_el is not None else None
 
         mac_el = host.find("address[@addrtype='mac']")
         mac = mac_el.get("addr") if mac_el is not None else None
         mac_vendor = mac_el.get("vendor") if mac_el is not None else None
 
-        # nmap's <osclass> carries type/vendor/osfamily/osgen attributes —
-        # osfamily (e.g. "Linux") is the useful OS guess.
-        os_el = host.find("os/osclass")
-        os_match = os_el.get("osfamily") if os_el is not None else None
+        # Real nmap nests the match under <os><osmatch name="Linux 5.0 - 5.14">;
+        # the first osmatch is the most accurate one. Its name attribute is the
+        # guess; <osclass> lives inside osmatch and only gives a family
+        # (osfamily, e.g. "Linux") as fallback.
+        osmatch_el = host.find("os/osmatch")
+        os_match = osmatch_el.get("name") if osmatch_el is not None else None
+        if os_match is None and osmatch_el is not None:
+            osclass_el = osmatch_el.find("osclass")
+            os_match = osclass_el.get("osfamily") if osclass_el is not None else None
 
         ports: list[PortResult] = []
         for port_el in host.findall("ports/port"):

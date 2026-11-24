@@ -29,7 +29,7 @@ def test_service_fixture():
     atom, apollo = result.hosts
 
     assert atom.hostname == "atom"
-    assert atom.os_match == "Linux"
+    assert atom.os_match == "Linux 2.6.32 - 3.x"  # real nmap: osmatch/@name
     assert atom.mac_vendor == "MicroStar Intl"
     assert len(atom.ports) == 3
 
@@ -70,6 +70,63 @@ def test_real_nmap_attribute_is_portid_not_port():
 
     assert parse_nmap_xml(real, "192.168.1.0/24").hosts[0].ports[0].port == 443
     assert parse_nmap_xml(invented, "192.168.1.0/24").hosts[0].ports == ()
+
+
+REAL_SHAPE = (
+    '<?xml version="1.0"?><nmaprun><host starttime="1">'
+    '<status state="up" reason="arp-response"/>'
+    '<address addr="192.168.0.250" addrtype="ipv4"/>'
+    '<address addr="B8:27:EB:11:22:33" addrtype="mac" vendor="Raspberry Pi Foundation"/>'
+    '<hostnames><hostname name="atom.lan" type="PTR"/></hostnames>'
+    '<ports><port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/>'
+    '<service name="ssh" product="OpenSSH" version="9.2p1"/></port></ports>'
+    '<os><portused state="open" proto="tcp" portid="22"/>'
+    '<osmatch name="Linux 5.0 - 5.14" accuracy="100" line="1">'
+    '<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="5.X" accuracy="100"/>'
+    '</osmatch></os>'
+    '</host></nmaprun>'
+)
+
+
+def test_real_nmap_nests_hostname_and_osmatch():
+    # Regression: the parser looked for `hostname` and `os/osclass` as direct
+    # children of <host>; real nmap nests <hostname> inside <hostnames> and
+    # <osclass> inside <osmatch>. Real-shaped XML must yield both fields.
+    host = parse_nmap_xml(REAL_SHAPE, "192.168.0.0/24").hosts[0]
+    assert host.hostname == "atom.lan"
+    assert host.os_match == "Linux 5.0 - 5.14"  # osmatch name, most accurate match
+    assert host.mac == "B8:27:EB:11:22:33"
+    assert host.ports[0].port == 22
+
+
+def test_real_nmap_os_falls_back_to_osfamily():
+    # An <osmatch> without a name attribute still gives a family via osclass.
+    no_name = REAL_SHAPE.replace(' name="Linux 5.0 - 5.14"', "")
+    host = parse_nmap_xml(no_name, "192.168.0.0/24").hosts[0]
+    assert host.os_match == "Linux"
+
+
+def test_hostname_prefers_ptr_then_user():
+    xml = (
+        '<nmaprun><host><status state="up"/>'
+        '<address addr="192.168.1.5" addrtype="ipv4"/>'
+        '<hostnames><hostname name="spoofed" type="user"/>'
+        '<hostname name="real.lan" type="PTR"/></hostnames></host></nmaprun>'
+    )
+    assert parse_nmap_xml(xml, "192.168.1.0/24").hosts[0].hostname == "real.lan"
+
+    only_user = xml.replace('<hostname name="real.lan" type="PTR"/>', "")
+    assert parse_nmap_xml(only_user, "192.168.1.0/24").hosts[0].hostname == "spoofed"
+
+
+def test_missing_hostname_and_os_elements_are_none():
+    xml = (
+        '<nmaprun><host><status state="up"/>'
+        '<address addr="192.168.1.5" addrtype="ipv4"/></host></nmaprun>'
+    )
+    host = parse_nmap_xml(xml, "192.168.1.0/24").hosts[0]
+    assert host.hostname is None
+    assert host.os_match is None
 
 
 def test_malformed_xml_raises():

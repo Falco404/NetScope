@@ -44,3 +44,6 @@ Before changing anything:
 
 ## Project-specific rules
 - Scanner logic must be testable without a network (mock nmap output).
+- Test fixtures must be captured from real tool output, never written from
+  memory. Invented XML shapes have hidden three parser bugs so far — tests
+  then confirm the invented structure, not the real tool.

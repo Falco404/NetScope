@@ -1,14 +1,14 @@
-# Project Status (updated 2026-11-23)
+# Project Status (updated 2026-11-24)
 
 ## Summary
 NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
 service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
-**DONE** as of 2026-11-23 — future work is bugfixes and the LAN-bind decision
-only. 83 tests pass, ruff clean. The tool has produced real scans of the home
-LAN (`192.168.0.0/24`); the latest one is recorded as acceptance evidence on
-issue #10.
+**DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
+Code review (issues #30–#38; ideas #39–#43). 87 tests pass, ruff clean.
+The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
+latest one is recorded as acceptance evidence on issue #10.
 
 ## Done
 - **M1 scaffolding** (#12, `01d2ebb`): uv project, pytest, ruff, GitHub Actions CI (3.12/3.13), docs seed.
@@ -24,27 +24,32 @@ issue #10.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
 
 ## In progress
-Nothing. Working tree clean on main (`a1c4e6d`); no open PRs or issues at
-handoff time (this docs handoff is the only branch in flight).
+- **#30 parser hostname/OS fix** — branch `hermes/parser-hostname-os`, PR open. Real-shaped XML now yields hostname + OS; fixtures reshaped to real nesting (pending: replace with real captured XML — see Known issues). AGENTS.md gained the "capture fixtures from real output" rule.
 
-## Next steps (in order)
-1. Deploy on **Apollo** (Fedora laptop): follow README Linux setup
-   (`dnf install nmap`, `uv sync`); first real LAN scan on Apollo is
-   unverified — timings there unknown (Windows: 236–272 s per `/24`).
-2. Decide whether `0.0.0.0` binding + any auth is wanted (UI currently has
-   none; localhost-only by default). Tracked as issue #28.
-3. Optional later: `nmap --script broadcast-nbname` as auto-fill for Windows hosts (manual names stay authoritative).
-4. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
+## Next steps (in order, agreed with Falco 2026-11-24)
+1. **#32** Frontend: stop rendering scan data with `innerHTML` (XSS) — lands before #30 goes live.
+2. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
+3. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
+4. **#34** `nmap -O` root-privilege check **run by Falco on Apollo** (`nmap -sV -O 127.0.0.1; echo $?`) — implement conditional `-O` only if confirmed.
+5. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+6. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+7. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
+8. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
-tests must not assume POSIX binaries because CI is Linux-only while Falco runs
+hostname nests under `<hostnames>` and OS under `<os><osmatch>`; tests must
+not assume POSIX binaries because CI is Linux-only while Falco runs
 tests on Windows; the nmap timeout is per pass (default 300 s, two passes);
 `-O` needs raw-socket privileges (admin PowerShell); this Hermes container sits
 on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
 run only on the Windows PC or Apollo. macOS support is documented in the
 README but **never executed on a Mac** (reasoned from portable code + Homebrew
 nmap); `winget install nmap` package id likewise unverified from the container.
+**Fixtures are still hand-shaped, not captured**: the container has no nmap,
+so `tests/fixtures/*.xml` were reshaped to real nesting rather than replaced
+with captured output — swap in a real `nmap -oX -` capture from the home LAN
+when one is available.
 
 ## How to run and test
 Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
@@ -52,7 +57,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 83 passed
+uv run pytest                 # 87 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
@@ -60,7 +65,8 @@ uv run python -m netscope     # http://127.0.0.1:8000
 `NETSCOPE_HOST` (default `127.0.0.1`), `NETSCOPE_PORT` (8000), `NETSCOPE_NMAP_TIMEOUT` (300 s per pass).
 
 ## Open questions for the human
-- Bind on `0.0.0.0` for phone access + auth? Deferred — Falco has not decided yet; localhost-only stays.
+- **Fixture capture**: replace `tests/fixtures/*.xml` with real captured `nmap -oX -` output from the home LAN. The container cannot produce it (no nmap, Docker bridge) — a capture on Windows or Apollo is needed.
+- #34 (`-O` privileges on Linux/macOS): awaiting Falco's check on Apollo.
 
 ## Resolved (2026-11-23, Falco ran in a regular PowerShell window on `hermes/device-naming`)
 - **M7/M8 evidence recorded**: scans of `192.168.0.0/24` show real port numbers, vendor labels, and manual names (`.250` shown as "Atom Homeserver") that survive re-scans; diff/absent confirmed (`.19` and `.7` appeared, Chromecast/TV disappeared). Posted to issues #10 and #23.
