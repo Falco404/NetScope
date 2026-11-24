@@ -58,26 +58,38 @@ def device_from_host(host: HostResult) -> Device:
 
 def merge_scan(
     known: dict[str, Device], hosts: tuple[HostResult, ...], scan_id: int | None = None
-) -> dict[str, Device]:
+) -> tuple[dict[str, Device], tuple[tuple[str, str], ...]]:
     """Merge a scan's hosts into the known device map.
+
+    Returns ``(merged, rekeys)``; ``rekeys`` lists ``(old_identity, new_identity)``
+    for devices whose key changed, so the store can migrate their DB rows.
 
     Same identity -> update in place (latest non-empty hostname/OS wins,
     ports replaced by this scan's view — a scan is a fresh snapshot).
-    New identity -> added. Unknown-MAC hosts that show up with a MAC later
-    keep their old IP identity and do not fork into two devices.
+    New identity -> added. An IP-keyed device seen with a MAC re-keys to the
+    MAC (#35); a row that already carries a *different* MAC is a different
+    machine, so the host becomes a separate device instead of overwriting it.
     """
     merged = dict(known)
+    rekeys: list[tuple[str, str]] = []
     for host in hosts:
         if not host.up:
             continue  # a down host is not a device sighting
         new = device_from_host(host)
-        # A host that already exists by IP is the same machine even if we
-        # only now learned its MAC.
-        existing = merged.get(new.identity) or merged.get(host.ip)
+        existing = merged.get(new.identity)
+        rekey_from: str | None = None
+        if existing is None and new.mac:
+            ip_row = merged.get(host.ip)
+            if ip_row is not None and (ip_row.mac is None or ip_row.mac == new.mac):
+                # Same machine, MAC learned only now: re-key IP -> MAC.
+                existing = ip_row
+                rekey_from = host.ip
+            # else: the IP row carries a different MAC -> different machine,
+            # and this host is a new device under its own MAC.
         if existing is None:
             merged[new.identity] = replace(new, last_seen_scan=scan_id)
             continue
-        merged[existing.identity] = replace(
+        updated = replace(
             existing,
             ip=new.ip,
             hostname=new.hostname or existing.hostname,
@@ -87,4 +99,10 @@ def merge_scan(
             open_ports=new.open_ports,
             last_seen_scan=scan_id,
         )
-    return merged
+        if rekey_from is not None:
+            del merged[rekey_from]
+            merged[new.identity] = replace(updated, identity=new.identity)
+            rekeys.append((rekey_from, new.identity))
+        else:
+            merged[existing.identity] = updated
+    return merged, tuple(rekeys)

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from netscope.device import Device
 from netscope.scanner.models import HostResult, PortResult, ScanResult
 from netscope.scanner.parser import parse_nmap_xml
 from netscope.store import SQLiteStore, db_path
@@ -34,7 +35,7 @@ def scan_host_no_ports(ip: str, target: str = "192.168.1.0/24") -> ScanResult:
     """One up host that exposes zero ports (#31: still a sighting)."""
     xml = (
         f'<nmaprun><host><status state="up"/><address addr="{ip}" addrtype="ipv4"/>'
-        f"<hostname name=\"{ip}\" type=\"PTR\"/></host></nmaprun>"
+        f'<hostname name="{ip}" type="PTR"/></host></nmaprun>'
     )
     return parse_nmap_xml(xml, target)
 
@@ -312,3 +313,60 @@ def test_db_path_env_override(tmp_path, monkeypatch):
     with SQLiteStore() as s:  # picks up env var, no explicit path
         s.save_scan(scan_single_host("192.168.1.5", 80), {}, ts=TS1)
     assert (tmp_path / "from-env.db").exists()
+
+
+def known_map(store) -> dict[str, Device]:
+    """The dict the API passes to save_scan: currently known devices by identity."""
+    return {d.identity: d for d in store.load_devices()}
+
+
+def test_rekey_migrates_name_ports_and_sightings(store):
+    # #35: scan 1 (unprivileged) keys the machine by IP; scan 2 (privileged)
+    # learns its MAC. Every DB row must follow the machine to the MAC key.
+    store.save_scan(scan_single_host("192.168.1.10", 22), {}, ts=TS1)
+    store.set_device_name("192.168.1.10", "Atom")
+
+    scan2 = parse_nmap_xml(
+        '<nmaprun><host><status state="up"/><address addr="192.168.1.10" addrtype="ipv4"/>'
+        '<address addr="AA:BB:CC:DD:EE:01" addrtype="mac"/></host></nmaprun>',
+        "192.168.1.0/24",
+    )
+    store.save_scan(scan2, known_map(store), ts=TS2)
+
+    devices = store.load_devices()
+    assert [d.identity for d in devices] == ["AA:BB:CC:DD:EE:01"], "old IP key must be gone"
+    atom = devices[0]
+    assert atom.name == "Atom", "manual label migrated"
+    assert atom.mac == "AA:BB:CC:DD:EE:01"
+    assert atom.last_seen_scan == 2
+
+    # scan 1's port row migrated to the new key; nothing left under the old one
+    assert store.port_history("AA:BB:CC:DD:EE:01") == [(1, 22, "tcp", None, None)]
+    assert store.port_history("192.168.1.10") == []
+    # sightings of BOTH scans now live under the MAC key
+    assert store.sightings(1) == {"AA:BB:CC:DD:EE:01": "192.168.1.10"}
+    assert store.sightings(2) == {"AA:BB:CC:DD:EE:01": "192.168.1.10"}
+
+
+def test_conflicting_mac_stays_separate_in_store(store):
+    # #35 bug 2: a legacy DB row keyed by IP but already carrying a MAC.
+    # A different machine answering at the same IP must become its own device.
+    store.save_scan(scan_single_host("192.168.1.10", 22), {}, ts=TS1)
+    store.conn.execute(
+        "UPDATE devices SET mac = 'AA:BB:CC:DD:EE:01' WHERE identity = '192.168.1.10'"
+    )
+    store.conn.commit()
+
+    scan2 = parse_nmap_xml(
+        '<nmaprun><host><status state="up"/><address addr="192.168.1.10" addrtype="ipv4"/>'
+        '<address addr="FF:AA:BB:CC:DD:EE" addrtype="mac"/></host></nmaprun>',
+        "192.168.1.0/24",
+    )
+    store.save_scan(scan2, known_map(store), ts=TS2)
+
+    devices = store.load_devices()
+    assert [d.identity for d in devices] == ["192.168.1.10", "FF:AA:BB:CC:DD:EE"]
+    old = devices[0]
+    assert old.mac == "AA:BB:CC:DD:EE:01", "stored MAC not overwritten"
+    assert old.last_seen_scan == 1, "old machine not sighted in scan 2"
+    assert store.sightings(2) == {"FF:AA:BB:CC:DD:EE": "192.168.1.10"}

@@ -34,6 +34,8 @@ Written for the next session. Each one cost real debugging time.
 - **`save_scan` upserts `devices` only for hosts present in the result**, so an absent device keeps its old `last_seen_scan`. A device up with zero open ports is still sighted (`status == "seen"`, `open_ports == []`).
 - **Diffs are target-aware.** `diff_scans()` compares only devices whose IP falls inside **both** scans' targets; `/api/diff` without ids uses the latest earlier scan with the **same target** and 404s ("no earlier scan with the same target to compare") instead of pairing a `/32` against a `/24`. Explicit `from_id`/`to_id` still works across targets.
 - **v2→v3 backfill is best effort**: it derives historical sightings from `device_ports`, so a historical up host with zero ports has no backfilled sighting. Only new scans capture that correctly.
+- **Identity can change mid-life (#35).** An IP-keyed device that later reports a MAC re-keys to the MAC, so `identity` is NOT stable across scans — never cache an identity and write it back later. `merge_scan` returns `(merged, rekeys)`; the store's `_rekey_identity` must run BEFORE the upserts in `save_scan`. With `PRAGMA foreign_keys = ON` the order is forced: insert the new `devices` parent → update `device_ports`/`scan_devices` → move `device_names` → delete the old parent. Deleting the old parent first raises `sqlite3.IntegrityError: FOREIGN KEY constraint failed` and rolls the whole scan write back (verified by monkeypatching the naive order).
+- **A MAC conflict means two machines, not one row.** If the stored row already carries a different MAC than the incoming host, they are different devices (DHCP change): do not overwrite the stored MAC.
 
 ## Frontend (app.js)
 - **Never render scan/DB strings as markup.** Hostname, OS guess, vendor and
@@ -66,7 +68,7 @@ Written for the next session. Each one cost real debugging time.
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Merging workflow
