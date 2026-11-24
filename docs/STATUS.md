@@ -24,14 +24,15 @@ latest one is recorded as acceptance evidence on issue #10.
 - **README rewrite** (#27): user-facing README — description, setup + run for Windows, Linux and macOS, UI usage guide, internals overview; Status and Rules sections removed (docs/ + AGENTS.md own that information).
 
 ## In progress
-Nothing merged-pending: **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). Fixture capture still pending (see Known issues). **#32 frontend XSS fix** is open as PR #46 (branch `hermes/frontend-xss`, stacked on the docs-only PR #45 so doc edits don't conflict): `app.js` renders every scan-derived string with `textContent`, guarded by `tests/test_frontend_xss.py`.
+Nothing merged-pending: **#30 parser hostname/OS fix** merged 2026-11-24 (PR #44, `8ef0fe6`) — real-shaped XML now yields hostname + OS; verified live by Falco's admin scan (OS column populated: `Linux 4.10`, `Microsoft Windows 10 1607`; PTR hostnames like `blocked.local`). Fixture capture still pending (see Known issues).
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
-2. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
-3. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
-4. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
-5. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
+1. **#32** Frontend: stop rendering scan data with `innerHTML` (XSS) — now matters more, since #30 makes LAN hostnames reach the UI.
+2. **#31** Store: `scan_devices` table so seen/absent, `last_seen_scan` and diff stop depending on open ports.
+3. **#33** README setup: plain `uv sync` doesn't install pytest/ruff.
+4. **#34** Conditional `-O` — **verified on Apollo by Falco** (root required, exit 1); implement the privilege probe. Windows discrepancy flagged in `docs/gotchas.md` (needs one re-check by Falco).
+5. **#35–#38** identity re-keying, Host-header hardening, SQLite threading/progress, cleanup bundle.
+6. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
 7. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
 8. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
 
