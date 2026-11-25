@@ -16,6 +16,7 @@ import uvicorn
 from netscope.api import DEFAULT_ALLOWED_HOSTS, NetScopeAPI, build_app
 from netscope.scanner import NmapScanner, SubprocessNmapRunner
 from netscope.store import SQLiteStore
+from netscope.vendor_registry import MAC_PREFIXES_FILENAME, OUI_VENDORS, load_default_mac_prefixes
 
 
 def parse_port(value: str) -> int:
@@ -74,6 +75,17 @@ def main() -> None:
     ]
     if host not in ("0.0.0.0", "127.0.0.1"):
         extra_hosts.append(host)
+    # #38: prefer nmap's own MAC->vendor data file over the built-in table, so
+    # the vendor labels in the UI match what nmap itself prints. Done before the
+    # store is created, like the config checks above.
+    prefixes_path, prefixes_count = load_default_mac_prefixes()
+    if prefixes_path:
+        print(f"Vendor registry: {prefixes_count} MAC prefixes from {prefixes_path}")
+    else:
+        print(
+            f"Vendor registry: {len(OUI_VENDORS)} built-in prefixes "
+            f"(no {MAC_PREFIXES_FILENAME} found — install nmap or set NMAPDIR)"
+        )
     store = SQLiteStore()
     api = NetScopeAPI(store, NmapScanner(SubprocessNmapRunner(timeout=timeout)))
     allowed = ", ".join((*DEFAULT_ALLOWED_HOSTS, *extra_hosts))
