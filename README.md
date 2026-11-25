@@ -93,13 +93,20 @@ connections — allow it.
   `/24`) and is always editable — the guess is wrong if the server runs on a
   Docker or VPN bridge. Only private ranges are accepted (see Internals);
   anything else is refused with a clear error.
-- **Start scan** runs discovery + service detection (~4 minutes for a `/24`
-  on a normal PC). Only one scan runs at a time; a second request while one
-  is running is refused. Progress/errors show in the UI; a finished scan is
-  stored permanently.
+- **Quick scan** runs nmap's discovery pass only (`-sn`) and answers "who is
+  on the network" in seconds. Devices show up as `seen`; the Open ports column
+  reads `not probed`.
+- **Deep scan** follows discovery with port, service and OS detection
+  (`-sV -O`) on every host that answered — a few minutes for a `/24` on a
+  normal PC. Use it when you want ports, versions and OS guesses.
+- Only one scan runs at a time (both buttons disable while one is running); a
+  second request while one is running is refused. Progress/errors show in the
+  UI; every finished scan is stored permanently and labelled `quick` or
+  `deep`.
 - **Device list**: name, IP, status (`seen`/`absent`), OS guess, vendor, open
   ports per latest scan. Devices that vanish from a scan are kept and shown
-  as absent.
+  as absent. Hostname, OS and vendor are learned values and survive later
+  scans that do not see them again.
 - **Manual naming**: open a device and type a name. Your name beats any
   hostname/vendor label and survives every later scan. Names are stored in
   their own table, so scans never overwrite them.
@@ -119,11 +126,11 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   valid.
 - **`netscope/scanner/` — engine + runner + parser.** Two passes: `nmap -sn`
   host discovery on the subnet, then `nmap -sV -O` port/service/OS detection
-  on discovered hosts only. Output comes back as XML (`-oX -`), parsed into
-  `HostResult`/`PortResult` (ports from the `<port portid=...>` attribute, OS
-  from `<osclass osfamily=...>`). The runner is behind an interface, so tests
-  replay recorded XML fixtures with a fake runner — scanner logic is fully
-  testable offline, on any OS.
+  on discovered hosts only — a quick scan stops after the first pass. Output
+  comes back as XML (`-oX -`), parsed into `HostResult`/`PortResult` (ports
+  from the `<port portid=...>` attribute, OS from `<os>`/`<osmatch>`). The
+  runner is behind an interface, so tests replay recorded XML fixtures with a
+  fake runner — scanner logic is fully testable offline, on any OS.
 - **`netscope/device.py` + `vendor_registry.py` — device model.** Identity is
   the MAC when known (stable across DHCP leases), else the IP, so a device
   never forks into two rows. `merge_scan()` keeps the latest non-empty
@@ -133,18 +140,20 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   built-in registry when nmap is not installed — no runtime network calls.
   Longest registered prefix wins, so a 28- or 36-bit registration beats a
   24-bit one. Display priority: manual name → hostname → vendor label → bare IP.
-- **`netscope/store/store.py` — SQLite store.** Tables `scans`, `devices`,
-  `device_ports`, `device_names` (schema v2; v1 databases upgrade in place).
-  Upserts use COALESCE so empty scan fields never blank known ones.
-  `diff_scans()` computes appeared/disappeared/changed between two scans.
+- **`netscope/store/store.py` — SQLite store.** Tables `scans` (with `mode`),
+  `devices`, `device_ports`, `device_names`, `scan_devices` (schema v4; older
+  databases upgrade in place). Upserts use COALESCE so empty scan fields never
+  blank known ones. `diff_scans()` computes appeared/disappeared/changed
+  between two scans; port changes are only compared when both scans were deep
+  scans.
 - **`netscope/api/app.py` + `static/` — web app.** JSON endpoints
   (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`,
-  `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`). Scans run in a
-  background thread; the UI stays dumb — it fetches JSON, renders, and polls
-  status. `/api/local-subnet` asks the OS which local IP it would route from
-  (UDP `connect()`, no packet sent) and assumes `/24` — detection, never a
-  scan.
-- **`tests/` — 156 tests**, fixture-driven (recorded nmap XML), API tested via
+  `/api/os-hint`, `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`).
+  Scans run in a background thread; the UI stays dumb — it fetches JSON,
+  renders, and polls status. `/api/local-subnet` asks the OS which local IP it
+  would route from (UDP `connect()`, no packet sent) and assumes `/24` —
+  detection, never a scan.
+- **`tests/` — 189 tests**, fixture-driven (recorded nmap XML), API tested via
   `TestClient`, store tests on temp databases. No test assumes POSIX
   binaries; CI runs the suite on both Linux and Windows.
 

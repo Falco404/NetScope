@@ -30,3 +30,7 @@ class ScanResult:
     target: str
     hosts: tuple[HostResult, ...]
     os_detection_available: bool = True
+    # #39: "quick" = discovery only (`-sn`), "deep" = discovery + ports/services
+    # (+ OS when allowed). Default "deep" keeps every existing caller/scanner
+    # test on the old two-pass behaviour.
+    mode: str = "deep"

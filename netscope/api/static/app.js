@@ -53,7 +53,10 @@ function renderDevices() {
     tr.appendChild(el("td", `status-${d.status}`, d.status));
     tr.appendChild(el("td", null, d.os_guess ?? ""));
     tr.appendChild(el("td", null, d.vendor ?? ""));
-    tr.appendChild(el("td", "ports", d.open_ports.join(", ")));
+    // #39: a quick scan probes no ports. Say so instead of rendering an empty
+    // cell, which would read as "nothing is open".
+    const portsText = d.ports_probed === false ? "not probed" : d.open_ports.join(", ");
+    tr.appendChild(el("td", "ports", portsText));
     tr.addEventListener("click", () => openDetail(d.identity));
     tbody.appendChild(tr);
   }
@@ -80,7 +83,12 @@ async function loadAll() {
   $("scans").replaceChildren(
     ...(scans.length
       ? scans.map((s) =>
-          el("li", null, `${s.ts} — ${s.target}${s.duration_seconds ? ` (${s.duration_seconds}s)` : ""}`))
+          el(
+            "li",
+            null,
+            `${s.ts} — ${s.target} — ${s.mode === "quick" ? "quick" : "deep"}` +
+              `${s.duration_seconds ? ` (${s.duration_seconds}s)` : ""}`
+          ))
       : [el("li", "empty", "No scans yet.")])
   );
   try {
@@ -155,27 +163,38 @@ async function clearName() {
   }
 }
 
-async function startScan() {
-  $("scan-btn").disabled = true;
+async function startScan(mode) {
+  // #39: two buttons share this handler; the mode travels to the server,
+  // which decides whether the service pass runs.
+  setScanning(true);
   try {
     await api("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target: $("target").value.trim() }),
+      body: JSON.stringify({ target: $("target").value.trim(), mode }),
     });
     pollStatus();
   } catch (e) {
     $("scan-status").textContent = e.message;
-    $("scan-btn").disabled = false;
+    setScanning(false);
   }
 }
 
+function setScanning(busy) {
+  // Both buttons are disabled together: the server runs one scan at a time.
+  $("quick-btn").disabled = busy;
+  $("deep-btn").disabled = busy;
+}
+
 function barWidth(s) {
-  // #37: honest progress, not a fixed 60%. Two passes: discovery fills the
-  // left half, services the right half.
+  // #37: honest progress, not a fixed 60%. A deep scan runs two passes:
+  // discovery fills the left half, services the right half. A quick scan
+  // (#39) is ONE pass, so discovery fills the whole bar.
   if (s.state === "done") return "100%";
   if (s.state !== "running") return "0";
-  if (s.phase === "services") {
+  const quick = s.mode === "quick";
+  const span = quick ? 100 : 50;
+  if (!quick && s.phase === "services") {
     // Real denominator now: every discovered host gets fingerprinted.
     const total = s.hosts_found || 1;
     const frac = Math.min(s.hosts_in_phase / total, 1);
@@ -185,7 +204,7 @@ function barWidth(s) {
   // only N are up), so elapsed-vs-per-pass-limit is the only honest measure.
   if (s.timeout_seconds) {
     const frac = Math.min((s.elapsed_seconds || 0) / s.timeout_seconds, 1);
-    return `${50 * frac}%`;
+    return `${span * frac}%`;
   }
   return "8%"; // limit unknown: a small "working" floor, never a fake number
 }
@@ -196,16 +215,17 @@ function pollStatus() {
     if (s.state === "error") {
       $("scan-status").textContent = `error: ${s.error ?? "unknown error"}`;
       $("progress-bar").style.width = "0";
-      $("scan-btn").disabled = false;
+      setScanning(false);
       return;
     }
     osDetectionAvailable = s.os_detection_available !== false;
+    const quick = s.mode === "quick";
     const limit = s.timeout_seconds ? ` / ${s.timeout_seconds}s limit per pass` : "";
-    const osNote = !osDetectionAvailable
+    const osNote = !osDetectionAvailable && !quick
       ? " — OS detection unavailable (requires admin/root)"
       : "";
     const phaseLabel =
-      s.phase === "discovery" ? "pass 1/2 (discovery)"
+      s.phase === "discovery" ? `pass 1/${quick ? 1 : 2} (discovery)`
       : s.phase === "services" ? "pass 2/2 (services)"
       : "";
     $("scan-status").textContent =
@@ -218,7 +238,7 @@ function pollStatus() {
       setTimeout(poll, 1000);
       return;
     }
-    $("scan-btn").disabled = false;
+    setScanning(false);
     if (s.state === "done") await loadAll();
   };
   poll();
@@ -240,7 +260,8 @@ async function prefillTarget() {
   }
 }
 
-$("scan-btn").addEventListener("click", startScan);
+$("quick-btn").addEventListener("click", () => startScan("quick"));
+$("deep-btn").addEventListener("click", () => startScan("deep"));
 $("detail-close").addEventListener("click", () => { $("detail").hidden = true; });
 $("name-save").addEventListener("click", saveName);
 $("name-clear").addEventListener("click", clearName);

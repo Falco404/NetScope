@@ -1,4 +1,4 @@
-"""Scan engine: guard -> discovery pass -> service pass, via an NmapRunner."""
+"""Scan engine: guard -> discovery pass -> (deep only) service pass, via an NmapRunner."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from netscope.target import validate_target
 ProgressCallback = Callable[[str, HostResult | None], None]
 
 # The two nmap passes, named for the UI and for /api/scan/status.
+# A quick scan (#39) runs ONLY the discovery pass; a deep scan runs both.
 # Discovery (`-sn`) is the slow sweep of the whole subnet; services (`-sV`)
 # only runs on hosts that answered. Progress is reported per host IN each
 # phase (#37): a caller that only learns about hosts after the service pass
@@ -29,10 +30,20 @@ ProgressCallback = Callable[[str, HostResult | None], None]
 PHASE_DISCOVERY = "discovery"
 PHASE_SERVICES = "services"
 
+# #39: the mode values travel through ScanResult -> store -> API -> UI, so they
+# are constants instead of bare strings scattered over four layers.
+MODE_QUICK = "quick"
+MODE_DEEP = "deep"
+
 
 class NmapScanner:
     """Two-pass scan: `-sn` discovery on the subnet, then `-sV` (optionally
     `-O`) port/service and OS fingerprinting on hosts that responded.
+
+    A quick scan (#39) stops after discovery: it answers "who is on the
+    network" in seconds instead of minutes, because the expensive part is the
+    per-host service/OS probing and the port timeouts. It stores the same
+    presence data (sightings) as a deep scan, just without ports or OS.
 
     Before the service pass, a quick `-O` probe on localhost determines
     whether OS fingerprinting is available without privileges.  If the
@@ -46,9 +57,15 @@ class NmapScanner:
     def __init__(self, runner: NmapRunner) -> None:
         self.runner = runner
 
-    def scan(self, target: str, progress: ProgressCallback | None = None) -> ScanResult:
+    def scan(
+        self,
+        target: str,
+        progress: ProgressCallback | None = None,
+        deep: bool = True,
+    ) -> ScanResult:
         net = validate_target(target)  # raises IllegalTargetError before any run()
         target_str = str(net)
+        mode = MODE_DEEP if deep else MODE_QUICK
 
         if progress is not None:
             progress(PHASE_DISCOVERY, None)  # entering the discovery pass
@@ -60,10 +77,15 @@ class NmapScanner:
             for host in discovered_hosts:
                 progress(PHASE_DISCOVERY, host)
 
+        if not deep:
+            # Quick scan: discovery IS the result. No probe, no service pass —
+            # `probe_os()` would itself run nmap and cost seconds.
+            return ScanResult(target=target_str, hosts=tuple(discovered_hosts), mode=mode)
+
         discovered = [h.ip for h in discovered_hosts]
 
         if not discovered:
-            return ScanResult(target=target_str, hosts=())
+            return ScanResult(target=target_str, hosts=(), mode=mode)
 
         # Privilege probe: can nmap do -O without root/admin?
         os_available = self.runner.probe_os()
@@ -86,4 +108,5 @@ class NmapScanner:
             target=target_str,
             hosts=result.hosts,
             os_detection_available=os_available,
+            mode=mode,
         )

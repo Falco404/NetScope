@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from netscope.device import Device, merge_scan
 from netscope.scanner.models import ScanResult
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 DEFAULT_DB_PATH = "netscope.db"
 
 
@@ -49,7 +49,8 @@ CREATE TABLE scans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts TEXT NOT NULL,               -- ISO-8601 UTC
     target TEXT NOT NULL,
-    duration_seconds REAL
+    duration_seconds REAL,
+    mode TEXT NOT NULL DEFAULT 'deep'  -- 'quick' = discovery only, 'deep' = ports/OS too (#39)
 );
 CREATE TABLE devices (
     identity TEXT PRIMARY KEY,      -- MAC uppercase, else IP
@@ -110,6 +111,11 @@ INSERT OR IGNORE INTO scan_devices (scan_id, identity, ip)
 SELECT DISTINCT scan_id, identity, ip FROM device_ports;
 """
 
+# Added in schema v4 (#39): a scan records whether it was discovery-only.
+# Existing rows default to 'deep' — every scan before #39 ran the service
+# pass, so that is the truthful backfill and no separate UPDATE is needed.
+_SCANS_MODE_COLUMN = "ALTER TABLE scans ADD COLUMN mode TEXT NOT NULL DEFAULT 'deep'"
+
 
 def db_path() -> str:
     return os.environ.get("NETSCOPE_DB", DEFAULT_DB_PATH)
@@ -129,6 +135,7 @@ class ScanSummary:
     ts: str
     target: str
     duration_seconds: float | None
+    mode: str = "deep"  # #39: 'quick' (discovery only) | 'deep'
 
 
 @dataclass(frozen=True)
@@ -158,13 +165,18 @@ class SQLiteStore:
         if version == 0:
             conn.executescript(_SCHEMA)
         elif version < SCHEMA_VERSION:
-            # In-place upgrades: v1 databases get device_names (M8), and every
-            # older database gets scan_devices (#31) backfilled from device_ports
-            # so stored scans keep their presence data.
+            # In-place upgrades: v1 databases get device_names (M8), every
+            # database older than v3 gets scan_devices (#31) backfilled from
+            # device_ports so stored scans keep their presence data, and every
+            # database older than v4 gets `scans.mode` (#39) defaulting to
+            # 'deep' — every scan before #39 ran the service pass.
             if version < 2:
                 conn.executescript(_DEVICE_NAMES_TABLE)
-            conn.executescript(_SCAN_DEVICES_TABLE)
-            conn.executescript(_BACKFILL_SCAN_DEVICES)
+            if version < 3:
+                conn.executescript(_SCAN_DEVICES_TABLE)
+                conn.executescript(_BACKFILL_SCAN_DEVICES)
+            if version < 4:
+                conn.execute(_SCANS_MODE_COLUMN)
         if version != SCHEMA_VERSION:
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             conn.commit()
@@ -243,8 +255,8 @@ class SQLiteStore:
     ) -> tuple[int, dict[str, Device]]:
         ts = ts or datetime.now(UTC).isoformat()
         cur = self.conn.execute(
-            "INSERT INTO scans (ts, target, duration_seconds) VALUES (?, ?, ?)",
-            (ts, result.target, duration_seconds),
+            "INSERT INTO scans (ts, target, duration_seconds, mode) VALUES (?, ?, ?, ?)",
+            (ts, result.target, duration_seconds, result.mode),
         )
         scan_id = int(cur.lastrowid or 0)
 
@@ -342,9 +354,12 @@ class SQLiteStore:
 
     def list_scans(self) -> list[ScanSummary]:
         rows = self.conn.execute(
-            "SELECT id, ts, target, duration_seconds FROM scans ORDER BY id DESC"
+            "SELECT id, ts, target, duration_seconds, mode FROM scans ORDER BY id DESC"
         ).fetchall()
-        return [ScanSummary(id=r[0], ts=r[1], target=r[2], duration_seconds=r[3]) for r in rows]
+        return [
+            ScanSummary(id=r[0], ts=r[1], target=r[2], duration_seconds=r[3], mode=r[4])
+            for r in rows
+        ]
 
     def latest_scan_id(self) -> int | None:
         row = self.conn.execute("SELECT MAX(id) FROM scans").fetchone()
@@ -435,6 +450,11 @@ class SQLiteStore:
         row = self.conn.execute("SELECT target FROM scans WHERE id = ?", (scan_id,)).fetchone()
         return row[0] if row is not None else None
 
+    def scan_mode(self, scan_id: int) -> str | None:
+        """'quick' | 'deep' for a stored scan, None for an unknown id (#39)."""
+        row = self.conn.execute("SELECT mode FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        return row[0] if row is not None else None
+
     def scan_exists(self, scan_id: int) -> bool:
         """Is this scan id stored at all? (#38: the API must tell "no such
         scan" apart from "nothing changed" — an unknown id otherwise diffs
@@ -462,7 +482,13 @@ class SQLiteStore:
         A device is gone only if it was sighted in a and not in b, and only
         when its IP falls inside BOTH scans' targets — a single-IP scan after
         a /24 must not report every other device as disappeared or new.
-        "changed" stays a port-set comparison for devices sighted in both.
+
+        "changed" is a port-set comparison and is therefore only meaningful
+        when BOTH scans probed ports (#39): a quick scan has no port data at
+        all, so comparing it would report every sighted device as "changed
+        open ports" (deep -> quick) or as newly opened (quick -> deep).
+        Appeared/disappeared still work for any mode — that is what a quick
+        scan contributes.
         """
         sa, sb = self.sightings(a_id), self.sightings(b_id)
         ta, tb = self.scan_target(a_id), self.scan_target(b_id)
@@ -477,14 +503,17 @@ class SQLiteStore:
 
         new = tuple(sorted(i for i in sb.keys() - sa.keys() if covered(sb[i])))
         gone = tuple(sorted(i for i in sa.keys() - sb.keys() if covered(sa[i])))
-        ports_a, ports_b = self.scan_ports(a_id), self.scan_ports(b_id)
-        changed = tuple(
-            sorted(
-                i
-                for i in sa.keys() & sb.keys()
-                if ports_a.get(i, frozenset()) != ports_b.get(i, frozenset())
+        if self.scan_mode(a_id) != "deep" or self.scan_mode(b_id) != "deep":
+            changed: tuple[str, ...] = ()
+        else:
+            ports_a, ports_b = self.scan_ports(a_id), self.scan_ports(b_id)
+            changed = tuple(
+                sorted(
+                    i
+                    for i in sa.keys() & sb.keys()
+                    if ports_a.get(i, frozenset()) != ports_b.get(i, frozenset())
+                )
             )
-        )
         return ScanDiff(new_devices=new, gone_devices=gone, changed_devices=changed)
 
     MAX_NAME_LEN = 64

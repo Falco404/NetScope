@@ -12,7 +12,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -45,6 +45,14 @@ OS_HINT = (
     "Linux/macOS, and some devices cannot be fingerprinted at all."
 )
 
+# #39: the same empty column, but for a different reason — a quick scan never
+# asked nmap for ports or OS, so the privilege sentence would send the user
+# chasing admin rights for nothing.
+OS_HINT_QUICK = (
+    "The last scan was a quick scan (discovery only) — run a deep scan to fill "
+    "in open ports and OS guesses."
+)
+
 
 @dataclass
 class ScanJob:
@@ -58,6 +66,7 @@ class ScanJob:
 
     state: str = "idle"  # idle | running | done | error
     target: str | None = None
+    mode: str = "deep"  # #39: "quick" (discovery only) | "deep"
     hosts_found: int = 0  # cumulative sightings across both passes
     phase: str | None = None  # "discovery" | "services" while running
     hosts_in_phase: int = 0  # sightings reported by the CURRENT pass
@@ -70,6 +79,10 @@ class ScanJob:
 
 class ScanRequest(BaseModel):
     target: str
+    # #39: two buttons in the UI. "deep" is the default so a client written
+    # before #39 (or a curl one-liner) keeps the historical two-pass scan.
+    # Literal gives us a 422 for a typo'd mode instead of a silent deep scan.
+    mode: Literal["quick", "deep"] = "deep"
 
 
 class DeviceNameRequest(BaseModel):
@@ -98,7 +111,7 @@ class NetScopeAPI:
     def device_map(self) -> dict[str, Device]:
         return {d.identity: d for d in self.store.load_devices()}
 
-    def start_scan(self, target: str) -> ScanJob:
+    def start_scan(self, target: str, mode: str = "deep") -> ScanJob:
         # Guard FIRST: an illegal target never reaches the scanner or store.
         try:
             net = validate_target(target)
@@ -108,21 +121,26 @@ class NetScopeAPI:
         with self._lock:
             if self.job.state == "running":
                 raise HTTPException(status_code=409, detail="a scan is already running")
-            self.job = ScanJob(state="running", target=str(net), started_at=time.monotonic())
-        thread = threading.Thread(target=self._run_scan, args=(str(net),), daemon=True)
+            self.job = ScanJob(
+                state="running", target=str(net), mode=mode, started_at=time.monotonic()
+            )
+        thread = threading.Thread(target=self._run_scan, args=(str(net), mode), daemon=True)
         thread.start()
         return self.job
 
-    def _run_scan(self, target: str) -> None:
+    def _run_scan(self, target: str, mode: str = "deep") -> None:
         started = time.monotonic()
         try:
-            result = self.scanner.scan(target, progress=self._on_host)
+            # #39: quick stops after the discovery pass; the mode is carried on
+            # the result so the store records what actually ran.
+            result = self.scanner.scan(target, progress=self._on_host, deep=(mode == "deep"))
             duration = round(time.monotonic() - started, 2)
             scan_id, _ = self.store.save_scan(result, self.device_map(), duration_seconds=duration)
             with self._lock:
                 self.job.state = "done"
                 self.job.scan_id = scan_id
                 self.job.duration_seconds = duration
+                self.job.mode = result.mode
                 self.job.os_detection_available = result.os_detection_available
         except Exception as exc:  # nmap failure etc. -> reported to the UI
             with self._lock:
@@ -159,6 +177,7 @@ class NetScopeAPI:
             return {
                 "state": self.job.state,
                 "target": self.job.target,
+                "mode": self.job.mode,
                 "hosts_found": self.job.hosts_found,
                 "phase": self.job.phase,
                 "hosts_in_phase": self.job.hosts_in_phase,
@@ -186,6 +205,7 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
                 "ts": s.ts,
                 "target": s.target,
                 "duration_seconds": s.duration_seconds,
+                "mode": s.mode,
             }
             for s in api.store.list_scans()
         ]
@@ -200,6 +220,13 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
             return sightings_cache[scan_id]
 
         out = []
+        mode_cache: dict[int, str | None] = {}
+
+        def mode_for(scan_id: int) -> str | None:
+            if scan_id not in mode_cache:
+                mode_cache[scan_id] = api.store.scan_mode(scan_id)
+            return mode_cache[scan_id]
+
         for d in api.store.load_devices():
             # Presence is judged against the latest scan that could have seen
             # this device (#31): a single-IP scan of another device must not
@@ -220,6 +247,10 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
                     "os_guess": d.os_guess,
                     "status": "seen" if d.identity in seen else "absent",
                     "open_ports": [f"{p}/{proto}" for p, proto in open_ports],
+                    # #39: a quick scan probes no ports, so an empty list then
+                    # means "not measured", not "nothing open". The UI needs to
+                    # tell those apart instead of showing a blank cell.
+                    "ports_probed": cover is not None and mode_for(cover) == "deep",
                     "last_seen_scan": d.last_seen_scan,
                 }
             )
@@ -238,6 +269,9 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
         devices = api.store.load_devices()
         if not devices or any(d.os_guess for d in devices):
             return {"hint": None}
+        latest = api.store.latest_scan_id()
+        if latest is not None and api.store.scan_mode(latest) == "quick":
+            return {"hint": OS_HINT_QUICK}
         return {"hint": OS_HINT}
 
     @app.get("/api/devices/{identity}")
@@ -329,7 +363,7 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
 
     @app.post("/api/scan")
     def start_scan(req: ScanRequest) -> dict[str, Any]:
-        api.start_scan(req.target)
+        api.start_scan(req.target, req.mode)
         return api.status()
 
     @app.get("/api/scan/status")

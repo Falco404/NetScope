@@ -460,3 +460,93 @@ def test_os_hint_explains_an_empty_os_column(tmp_path):
     assert hint and "OS" in hint
     assert "admin" in hint and "root" in hint, hint
     store.close()
+
+
+def test_quick_scan_stops_after_discovery(tmp_path):
+    """#39: mode "quick" runs `-sn` only and still records a scan + sightings."""
+    client, api, store = make_client(tmp_path)
+    res = client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    assert res.status_code == 200
+    assert res.json()["mode"] == "quick"
+
+    status = wait_done(api)
+    assert status["state"] == "done"
+    assert status["mode"] == "quick"
+    assert status["hosts_found"] == 2
+    calls = api.scanner.runner.calls
+    assert len(calls) == 1, f"quick scan must not run the service pass: {calls}"
+    assert calls[0] == ["-sn", "-oX", "-", "192.168.1.0/24"]
+
+    devices = client.get("/api/devices").json()
+    assert len(devices) == 2
+    assert all(d["status"] == "seen" for d in devices)
+    assert all(d["open_ports"] == [] for d in devices)
+    assert all(d["os_guess"] is None for d in devices)
+    assert [s["mode"] for s in client.get("/api/scans").json()] == ["quick"]
+    store.close()
+
+
+def test_scan_defaults_to_deep_mode(tmp_path):
+    """A client written before #39 (or curl) keeps the historical two passes."""
+    client, api, store = make_client(tmp_path)
+    res = client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    assert res.json()["mode"] == "deep"
+    status = wait_done(api)
+    assert status["mode"] == "deep"
+    assert len(api.scanner.runner.calls) == 2  # discovery + services
+    store.close()
+
+
+def test_unknown_scan_mode_is_rejected_before_scanning(tmp_path):
+    client, api, store = make_client(tmp_path)
+    res = client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "fast"})
+    assert res.status_code == 422, res.text
+    assert api.scanner.runner.calls == []
+    store.close()
+
+
+def test_os_hint_explains_a_quick_scan(tmp_path):
+    """#39: an empty OS column after a quick scan is not a privilege problem."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+    hint = client.get("/api/os-hint").json()["hint"]
+    assert hint and "quick scan" in hint and "deep scan" in hint, hint
+    assert "admin" not in hint, f"must not blame privileges after a quick scan: {hint}"
+    store.close()
+
+
+def test_diff_skips_port_changes_after_a_quick_scan(tmp_path):
+    """The /api/diff default (previous same-target scan) must not turn a quick
+    scan into "every device changed open ports"."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})  # deep, with ports
+    wait_done(api)
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+
+    diff = client.get("/api/diff").json()
+    assert diff["changed"] == []
+    assert diff["appeared"] == []
+    assert diff["disappeared"] == []
+    store.close()
+
+
+def test_quick_scan_marks_ports_as_not_probed(tmp_path):
+    """#39: after a quick scan the table must say "not probed", not show an
+    empty Open ports cell that reads as "nothing is open"."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})  # deep first
+    wait_done(api)
+    deep = {d["ip"]: d for d in client.get("/api/devices").json()}
+    assert all(d["ports_probed"] is True for d in deep.values())
+    assert deep["192.168.1.10"]["open_ports"] == ["22/tcp", "80/tcp"]
+
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+    quick = {d["ip"]: d for d in client.get("/api/devices").json()}
+    assert all(d["ports_probed"] is False for d in quick.values())
+    assert all(d["open_ports"] == [] for d in quick.values())
+    # The learned OS guess survives (COALESCE), only the port snapshot is gone.
+    assert quick["192.168.1.10"]["os_guess"] == "Linux 2.6.32 - 3.x"
+    store.close()
