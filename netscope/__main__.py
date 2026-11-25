@@ -8,6 +8,7 @@ anything listed in NETSCOPE_ALLOWED_HOSTS (comma-separated).
 
 from __future__ import annotations
 
+import math
 import os
 
 import uvicorn
@@ -17,9 +18,54 @@ from netscope.scanner import NmapScanner, SubprocessNmapRunner
 from netscope.store import SQLiteStore
 
 
+def parse_port(value: str) -> int:
+    """NETSCOPE_PORT: an integer between 1 and 65535 (#38).
+
+    A typo used to surface as `ValueError: invalid literal for int() with
+    base 10: '8000abc'` — a traceback that never says which variable was
+    wrong, let alone what shape it wanted.
+    """
+    try:
+        port = int(value)
+    except ValueError:
+        raise ValueError(
+            f"NETSCOPE_PORT must be an integer port number (e.g. 8000), got {value!r}"
+        ) from None
+    if not 1 <= port <= 65535:
+        raise ValueError(f"NETSCOPE_PORT must be between 1 and 65535, got {port}")
+    return port
+
+
+def parse_timeout(value: str) -> float:
+    """NETSCOPE_NMAP_TIMEOUT: a finite number of seconds greater than 0 (#38).
+
+    0 or a negative value would kill nmap the instant it starts; `nan`/`inf`
+    would never kill it at all, so a hung scan would sit there forever.
+    """
+    try:
+        timeout = float(value)
+    except ValueError:
+        raise ValueError(
+            f"NETSCOPE_NMAP_TIMEOUT must be a number of seconds (e.g. 300), got {value!r}"
+        ) from None
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError(
+            f"NETSCOPE_NMAP_TIMEOUT must be a finite number of seconds greater "
+            f"than 0, got {value!r}"
+        )
+    return timeout
+
+
 def main() -> None:
     host = os.environ.get("NETSCOPE_HOST", "127.0.0.1")
-    port = int(os.environ.get("NETSCOPE_PORT", "8000"))
+    # #38: validate the numeric config BEFORE anything is created — a bad
+    # timeout used to be parsed only after SQLiteStore() had already written
+    # a database file to the current directory, so the crash left one behind.
+    try:
+        port = parse_port(os.environ.get("NETSCOPE_PORT", "8000"))
+        timeout = parse_timeout(os.environ.get("NETSCOPE_NMAP_TIMEOUT", "300"))
+    except ValueError as exc:
+        raise SystemExit(f"Bad configuration: {exc}") from None
     # #36: trusted Host header names. Loopback is always allowed; a LAN bind
     # must name the hosts clients actually use, because 0.0.0.0 is a bind
     # address and never appears as a Host header.
@@ -29,7 +75,6 @@ def main() -> None:
     if host not in ("0.0.0.0", "127.0.0.1"):
         extra_hosts.append(host)
     store = SQLiteStore()
-    timeout = float(os.environ.get("NETSCOPE_NMAP_TIMEOUT", "300"))
     api = NetScopeAPI(store, NmapScanner(SubprocessNmapRunner(timeout=timeout)))
     allowed = ", ".join((*DEFAULT_ALLOWED_HOSTS, *extra_hosts))
     print(f"NetScope on http://{host}:{port}  (db: {store.path}, nmap timeout: {timeout}s)")
