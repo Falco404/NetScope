@@ -8,14 +8,18 @@ home/lab networks) — extend as needed, it is a data file, not logic.
 from __future__ import annotations
 
 # First 3 octets of MAC -> vendor name.
+# Every entry below was checked against the IEEE OUI registrations mirrored by
+# uic.io on 2026-11-25 (nmap's own `nmap-mac-prefixes` file carries the same
+# data — see issue #38 for loading that file at startup instead).
+# The table previously shipped `AA:BB:CC -> MicroStar Intl`, a prefix that only
+# exists in our recorded fixtures with a vendor name invented for it, plus three
+# prefixes mapped to the wrong company (see docs/decisions.md).
 OUI_VENDORS: dict[str, str] = {
-    "AA:BB:CC": "MicroStar Intl",  # used by the lab fixture MACs
-    "00:0C:AC": "Dell",
-    "3C:07:59": "Intel",
-    "A4:50:55": "Apple",
+    "00:0C:AC": "Citizen Watch Co., Ltd.",
+    "A4:50:55": "BUSWARE.DE",
     "B8:27:EB": "Raspberry Pi Foundation",
-    "DC:A6:32": "Raspberry Pi Foundation",
-    "E0:37:BF": "Microsoft",
+    "DC:A6:32": "Raspberry Pi Trading Ltd",
+    "E0:37:BF": "WNC Corporation",
 }
 
 
