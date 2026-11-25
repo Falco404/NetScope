@@ -95,6 +95,12 @@ three options, cheapest first:
   sudo nmap -sV -O 127.0.0.1
   ```
 
+  A *successful* run does not have to name an OS: nmap prints
+  `No exact OS matches for host` when its fingerprint database has no entry —
+  localhost is the typical case (the output is still proof that raw sockets
+  work). To see the OS column actually fill, scan a real device: run a
+  **Deep scan**, or open one device and press *Deep scan this device*.
+
 - **Run NetScope as root without uv.** uv is a per-user install, so
   `sudo uv …` ends in `sudo: uv: command not found` — and even with the right
   `PATH`, `uv run` as root leaves root-owned files in `.venv` and then breaks
