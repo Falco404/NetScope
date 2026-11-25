@@ -156,6 +156,26 @@ async function startScan() {
   }
 }
 
+function barWidth(s) {
+  // #37: honest progress, not a fixed 60%. Two passes: discovery fills the
+  // left half, services the right half.
+  if (s.state === "done") return "100%";
+  if (s.state !== "running") return "0";
+  if (s.phase === "services") {
+    // Real denominator now: every discovered host gets fingerprinted.
+    const total = s.hosts_found || 1;
+    const frac = Math.min(s.hosts_in_phase / total, 1);
+    return `${50 + 50 * frac}%`;
+  }
+  // Discovery: no host denominator exists yet (a /24 has 254 addresses,
+  // only N are up), so elapsed-vs-per-pass-limit is the only honest measure.
+  if (s.timeout_seconds) {
+    const frac = Math.min((s.elapsed_seconds || 0) / s.timeout_seconds, 1);
+    return `${50 * frac}%`;
+  }
+  return "8%"; // limit unknown: a small "working" floor, never a fake number
+}
+
 function pollStatus() {
   const poll = async () => {
     const s = await api("/api/scan/status");
@@ -170,11 +190,16 @@ function pollStatus() {
     const osNote = !osDetectionAvailable
       ? " — OS detection unavailable (requires admin/root)"
       : "";
+    const phaseLabel =
+      s.phase === "discovery" ? "pass 1/2 (discovery)"
+      : s.phase === "services" ? "pass 2/2 (services)"
+      : "";
     $("scan-status").textContent =
-      `${s.state}${s.elapsed_seconds ? ` — ${s.elapsed_seconds}s${limit}` : ""}` +
+      `${s.state}${phaseLabel ? ` — ${phaseLabel}` : ""}` +
+      `${s.elapsed_seconds ? ` — ${s.elapsed_seconds}s${limit}` : ""}` +
       `${s.hosts_found ? ` — ${s.hosts_found} host(s) found` : ""}` +
       osNote;
-    $("progress-bar").style.width = s.state === "running" ? "60%" : s.state === "done" ? "100%" : "0";
+    $("progress-bar").style.width = barWidth(s);
     if (s.state === "running") {
       setTimeout(poll, 1000);
       return;
