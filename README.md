@@ -144,9 +144,9 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   status. `/api/local-subnet` asks the OS which local IP it would route from
   (UDP `connect()`, no packet sent) and assumes `/24` — detection, never a
   scan.
-- **`tests/` — 83 tests**, fixture-driven (recorded nmap XML), API tested via
+- **`tests/` — 156 tests**, fixture-driven (recorded nmap XML), API tested via
   `TestClient`, store tests on temp databases. No test assumes POSIX
-  binaries; CI runs Linux, Windows developers run the same suite.
+  binaries; CI runs the suite on both Linux and Windows.
 
 More detail: `docs/architecture.md` (design), `docs/decisions.md` (why each
 choice was made), `docs/gotchas.md` (nmap quirks worth knowing).

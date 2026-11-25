@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 153 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 156 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -46,25 +46,26 @@ latest one is recorded as acceptance evidence on issue #10.
 - **Fix: the suite failed on Falco's Windows box but passed here** (`1 failed, 151 passed`, `test_comment_lines_are_not_entries`, `assert '525400' not in MAC_PREFIXES`) — not a parser bug. `MAC_PREFIXES` is process-wide, and `tests/test_main_env.py::test_main_starts_normally_with_valid_env` runs `main()`, which reads nmap's data file at startup; nmap **is** installed on his machine, so 52,085 real registrations (including the genuine `525400 QEMU virtual NIC`) were already in the dict when the vendor tests ran. Two fixes: (1) `load_mac_prefixes()` now **replaces** the registry instead of merging into it — a loaded file *is* the registry, so vendors from a file that is no longer in effect cannot keep answering, and a file that fails to parse halfway leaves the previous table intact; (2) test isolation — `clean_registry` resets the dict to the built-in seed before each test, and `test_main_env.py` gained an autouse fixture that clears `NMAPDIR` and stubs `shutil.which` so a developer's own nmap install can never be read. Reproduced here with a fake `nmap` + the real data file on `PATH` (fails before the fix, passes after), and verified green in all three environments: no nmap, nmap in `PATH`, `NMAPDIR` set to the real 52k file. 9 tests in `tests/test_vendor_registry.py`; 153 pass, ruff clean.
 
 - **#38 env-var validation** (PR #62, merged `4e29467` 2026-11-25): `NETSCOPE_PORT=8000abc` used to die with a bare `ValueError: invalid literal for int() with base 10: '8000abc'` traceback that never named the variable. `parse_port` / `parse_timeout` (new, in `netscope/__main__.py`) now reject bad values with a message naming the variable, the bad value and the expected shape, and `main()` turns that into `Bad configuration: NETSCOPE_PORT must be an integer port number (e.g. 8000), got '8000abc'` with exit 1 — no traceback. Range checks too: port must be 1–65535, timeout must be finite and > 0 (`0` would kill nmap instantly, `nan`/`inf` would never time a scan out). Both are now parsed **before** `SQLiteStore()` exists, fixing a second bug found on the way: `NETSCOPE_NMAP_TIMEOUT=abc` used to create a 49 KB `netscope.db` in the current directory and then crash, leaving the file behind. 137 tests pass (10 new in `tests/test_main_env.py`, all proven RED against the old code), ruff clean.
+- **#38 Windows CI job** (branch `hermes/windows-ci-matrix`, this PR): `.github/workflows/tests.yml` now runs the suite on **ubuntu-latest and windows-latest × Python 3.12/3.13** (`runs-on: ${{ matrix.os }}`; the job name shows OS + version), so a Windows-only failure cannot reach Falco's machine again without CI seeing it first. `tests/test_ci.py` (3 guard tests, proven RED against the old workflow) pins the OS matrix, the `matrix.os` lookup and the install/lint/test steps. 156 tests pass, ruff clean.
 
 ## In progress
-- **Nothing is in progress.** PR #64 (read nmap's own `nmap-mac-prefixes` file at startup + longest-prefix matching + the `uv sync` dev-dependency fix + the Windows-only test leak) merged to main as `ef0faba` on 2026-11-25 and its branch was deleted. #37 (both halves), #33–#36 and the vendor-registry data (#63) are all merged. #38 stays open with **three items left**: `LICENSE`, the stale `docs/architecture.md` header/milestone list, and a Windows CI job.
+- **#38 Windows CI job** — branch `hermes/windows-ci-matrix` (this PR). Nothing else is in flight. #38 stays open with **two items left**: `LICENSE` (Falco chose MIT 2026-11-25 — file not written yet) and the stale `docs/architecture.md` header/milestone list. PR #64 and its branch are merged/closed; #37 (both halves), #33–#36 and #63 are all merged.
 
-## Handoff state (2026-11-25, session ended on request)
-- `main` = `ef0faba` (PR #64, merged; branch `hermes/mac-prefixes-loader` deleted), working tree clean, **no open PRs**, **153 tests pass**, `ruff check .` clean. Nothing was left half-done.
-- Open issues: **#38** (three items left, itemised below) and the ideas #39–#43. Milestones already exist and are populated: **"Bugfix backlog (code review #33-#38)"** holds the open #38 (5 closed), **"Ideas (later)"** holds the 5 open idea issues.
-- **#38 remaining item — no `LICENSE` file.** `ls LICENSE*` is empty on main. Needs Falco's decision on which license (MIT or Apache-2.0 are the obvious picks for a LAN tool); then add the file and the matching `pyproject.toml` classifier. Not started, deliberately: the choice is the owner's.
-- **#38 remaining item — CI is Linux-only.** `.github/workflows/tests.yml` matrix (line ~14) has only `python-version: ["3.12", "3.13"]`, so `runs-on` is ubuntu only. Adding `os: [ubuntu-latest, windows-latest]` + `matrix.os` would have caught the `525400` environment leak that only reproduced on Falco's Windows box. Pushing to `.github/` needs a token with `workflow` scope (refused until re-scoped on 2026-11-25 — see `docs/decisions.md`).
-- **#38 remaining item — `docs/architecture.md` is stale.** Header still reads "Last updated: 2026-11-23 (M1)" and the Milestones line stops at M7 although M8 (device naming) is merged. The prose itself was refreshed piecemeal (it already covers the #36 Host allowlist, #37 per-thread SQLite connections, the nmap data-file registry, `-O`), so this is a header + milestone-list + spot-check job, not a rewrite.
-- **Still pending from earlier sessions:** a real captured nmap XML fixture. `tests/fixtures/atom_windows_admin.xml` is preamble-only (an interrupted run) and is kept verbatim with a `ParseError` regression test; a usable fixture needs a scan that runs to completion on Windows or Apollo. The container cannot produce one (no nmap, Docker bridge network).
+## Handoff state (2026-11-25, updated after PR #65 merged)
+- `main` = `4f64fb7` (PR #65 docs handoff merged; branch deleted). Its doc hunks were verified landed (`git diff caabc6d main` is empty). Working tree clean before starting `hermes/windows-ci-matrix`.
+- Open issues: **#38** (two items left after this PR, itemised below) and the ideas #39–#43. Milestones: **"Bugfix backlog (code review #33-#38)"** holds the open #38, **"Ideas (later)"** holds the 5 open idea issues.
+- **#38 item 1 — Windows CI job: implemented in this PR** (ubuntu-latest + windows-latest × 3.12/3.13, `runs-on: ${{ matrix.os }}`, guard `tests/test_ci.py`).
+- **#38 item 2 — `LICENSE`.** Falco chose **MIT** on 2026-11-25 (`docs/decisions.md`). Next item: add the `LICENSE` file plus the `pyproject.toml` classifier.
+- **#38 item 3 — `docs/architecture.md` is stale.** Header still reads "Last updated: 2026-11-23 (M1)" and the Milestones line stops at M7 although M8 is merged; the prose is current piecemeal (it already covers the #36 Host allowlist, #37 per-thread SQLite connections, the nmap data-file registry, `-O`), so this is a header + milestone-list + spot-check job, not a rewrite.
+- **Fixture capture — still pending.** Falco's 2026-11-25 capture (`falco-nmap-testrun.xml`, regular PowerShell, `nmap -sV -O -oX ... 192.168.0.0/24`, Ctrl+C after ~2 min) is 4462 bytes, preamble-only, **zero `<host>` blocks**; `ET.parse` raises `ParseError: no element found: line 9, column 0` — the same shape as `atom_windows_admin.xml`, so it was **not** added as a second fixture. A usable fixture needs a scan that runs to completion (~4–5 min for the /24).
 - **#34 (`-O` privileges) is CLOSED** (2026-11-24): root IS required on Apollo (verified exit 1 unprivileged); unprivileged NetScope scans on Windows DO populate the OS column. The optional graceful hint ("OS column needs admin on Windows / root on Linux") is not implemented — follow-up polish, not a blocker.
-- Local housekeeping: 11 stale `hermes/*` branches remain in this clone. Their PRs are all merged, but GitHub **squash-merged** them, so the commits are not ancestors of `main` (`git merge-base --is-ancestor` says no) and `git branch -d` refuses them. Delete with `git branch -D <branch>` only after confirming that branch's PR is merged — never blanket-delete.
+- Local housekeeping: 13 stale `hermes/*` branches remain in this clone (the handoff branch was deleted after its PR merged). Their PRs are all merged, but GitHub **squash-merged** them, so the commits are not ancestors of `main` (`git merge-base --is-ancestor` says no) and `git branch -d` refuses them. Delete with `git branch -D <branch>` only after confirming that branch's PR is merged — never blanket-delete.
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
-1. **#38 — Windows CI job**: add `os: [ubuntu-latest, windows-latest]` to the matrix in `.github/workflows/tests.yml` and `matrix.os` to `runs-on`. Highest value of the three: it is the only item that stops a repeat of the Windows-only test leak that cost this session a debugging round-trip. Needs a token with `workflow` scope.
-2. **#38 — `LICENSE`**: ask Falco which license first (MIT or Apache-2.0), then add the file plus the `pyproject.toml` classifier in one small PR.
+1. **#38 — Windows CI job**: opened in this PR (branch `hermes/windows-ci-matrix`).
+2. **#38 — `LICENSE` (MIT, decided 2026-11-25)**: add the `LICENSE` file plus the `pyproject.toml` classifier in one small PR.
 3. **#38 — refresh `docs/architecture.md`**: header date, milestone list through M8, spot-check the prose against current code.
-4. **Capture a real nmap XML fixture** on Windows or Apollo (a completed `nmap -sV -O -oX` run) and add parser tests against it — fixtures must come from real tool output (AGENTS.md rule).
+4. **Capture a real nmap XML fixture** on Windows or Apollo — a scan that runs to **completion** (`nmap -sV -O -oX`, ~4–5 min for the `/24`, do not Ctrl+C) — then add parser tests against it. Fixtures must come from real tool output (AGENTS.md rule); the 2026-11-25 interrupted capture was preamble-only and unusable.
 5. **Optional polish from closed #34**: graceful hint when `-O` yields no OS data (admin on Windows, root on Linux/macOS).
 6. Optional later: #41 mDNS/NetBIOS name suggestions, #40 scheduled scans + alerting, #42 per-device timeline, #43 CSV/JSON export, #39 quick vs deep scan.
 7. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
@@ -72,8 +73,8 @@ latest one is recorded as acceptance evidence on issue #10.
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
 hostname nests under `<hostnames>` and OS under `<os><osmatch>`; tests must
-not assume POSIX binaries because CI is Linux-only while Falco runs
-tests on Windows; the nmap timeout is per pass (default 300 s, two passes);
+not assume POSIX binaries because CI now runs the suite on Linux **and**
+Windows (Falco also runs it on his Windows box); the nmap timeout is per pass (default 300 s, two passes);
 `-O` needs raw-socket privileges (admin PowerShell); this Hermes container sits
 on the Docker bridge (`172.18.0.x`) and cannot scan the home LAN, so real scans
 run only on the Windows PC or Apollo. macOS support is documented in the
@@ -88,7 +89,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 153 passed
+uv run pytest                 # 156 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
