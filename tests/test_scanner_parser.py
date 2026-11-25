@@ -148,3 +148,49 @@ def test_interrupted_windows_capture_raises_parse_error():
     with pytest.raises(xml.etree.ElementTree.ParseError):
         parse_nmap_xml(fixture("atom_windows_admin.xml"), "192.168.0.250")
 
+
+def test_real_home_lan_capture_inventory_matches_the_scan():
+    # Real completed capture (2026-11-25, regular PowerShell, nmap 7.80,
+    # `nmap -sV -O -oX ... 192.168.0.0/24`, 12 hosts up in 599.73 s). MAC
+    # addresses were replaced by scripts/redact_mac_addresses.py — see
+    # tests/fixtures/README.md; every other value is as nmap wrote it.
+    result = parse_nmap_xml(fixture("home_lan_complete_2026-11-25.xml"), "192.168.0.0/24")
+
+    assert len(result.hosts) == 12
+    by_ip = {h.ip: h for h in result.hosts}
+
+    gateway = by_ip["192.168.0.1"]
+    assert gateway.mac == "02:00:00:00:00:01"
+    assert gateway.os_match == "Scientific Atlanta WebSTAR EPC2203 cable modem"
+    states = {p.port: p.state for p in gateway.ports}
+    assert states == {80: "open", 443: "open", 8081: "filtered", 8082: "open", 8888: "filtered"}
+
+    chromecast = by_ip["192.168.0.5"]
+    assert chromecast.mac_vendor == "Google"
+    assert chromecast.hostname == "blocked.local"
+    assert chromecast.os_match == "Linux 2.6.32 - 3.10"
+    assert {p.port for p in chromecast.ports} == {8008, 8009, 8443, 9000, 10001}
+
+    # The scanning Windows PC reported no MAC in this scan.
+    windows = by_ip["192.168.0.14"]
+    assert windows.mac is None
+    assert windows.os_match == "Microsoft Windows 10 1607"
+    assert len(windows.ports) == 6
+
+    atom = by_ip["192.168.0.250"]
+    assert atom.mac_vendor == "Magic Control Technology"
+    assert atom.hostname == "pi.hole"
+    assert len(atom.ports) == 13
+    assert any(p.port == 22 and p.state == "open" for p in atom.ports)
+
+
+def test_real_home_lan_capture_ships_only_placeholder_macs():
+    # Guard: the committed fixture must never contain a real MAC address again.
+    import re
+
+    result = parse_nmap_xml(fixture("home_lan_complete_2026-11-25.xml"), "192.168.0.0/24")
+    macs = [h.mac for h in result.hosts if h.mac is not None]
+    assert len(macs) == 11
+    assert all(re.fullmatch(r"02:00:00:00:00:[0-9A-F]{2}", mac) for mac in macs), macs
+
+
