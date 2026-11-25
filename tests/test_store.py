@@ -1,6 +1,7 @@
 """Store tests on temp DBs (pytest tmp_path) — no shared state, no network."""
 
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -55,7 +56,7 @@ def test_schema_created_and_versioned(tmp_path):
     import sqlite3
 
     conn = sqlite3.connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"scans", "devices", "device_ports", "device_names", "scan_devices"} <= tables
 
@@ -85,7 +86,7 @@ def test_v1_database_is_upgraded_in_place(tmp_path):
     conn.close()
 
     with SQLiteStore(path) as s:
-        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 4
         assert s.load_devices()[0].identity == "192.168.1.5"  # old row survives
         assert s.set_device_name("192.168.1.5", "Renamed box") == "Renamed box"
         assert s.load_devices()[0].display_name == "Renamed box"
@@ -122,10 +123,56 @@ def test_v2_database_is_upgraded_in_place(tmp_path):
     conn.close()
 
     with SQLiteStore(path) as s:
-        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 4
         # Every stored port row implies a sighting: old scans keep presence data.
         assert s.sightings(1) == {"192.168.1.7": "192.168.1.7"}
         assert s.scan_target(1) == "192.168.1.0/24"
+
+
+def test_v3_database_is_upgraded_in_place(tmp_path):
+    """Schema v3 databases gain scans.mode (#39) without losing history.
+
+    Every scan stored before #39 ran the service pass, so 'deep' is the
+    truthful default — a v3 row must not read as a quick scan afterwards.
+    """
+    path = tmp_path / "v3.db"
+    import sqlite3
+
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE scans (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,
+            target TEXT NOT NULL, duration_seconds REAL);
+        CREATE TABLE devices (identity TEXT PRIMARY KEY, ip TEXT NOT NULL, hostname TEXT,
+            mac TEXT, vendor TEXT, os_guess TEXT, last_seen_scan INTEGER NOT NULL);
+        CREATE TABLE device_names (identity TEXT PRIMARY KEY REFERENCES devices(identity),
+            name TEXT NOT NULL);
+        CREATE TABLE device_ports (scan_id INTEGER NOT NULL REFERENCES scans(id),
+            identity TEXT NOT NULL REFERENCES devices(identity), ip TEXT NOT NULL,
+            port INTEGER NOT NULL, protocol TEXT NOT NULL, service TEXT, version TEXT);
+        CREATE TABLE scan_devices (scan_id INTEGER NOT NULL REFERENCES scans(id),
+            identity TEXT NOT NULL REFERENCES devices(identity), ip TEXT NOT NULL,
+            PRIMARY KEY (scan_id, identity));
+        CREATE INDEX idx_device_ports_scan ON device_ports(scan_id);
+        CREATE INDEX idx_scan_devices_scan ON scan_devices(scan_id);
+        INSERT INTO scans (id, ts, target, duration_seconds)
+        VALUES (1, '2026-11-25T10:00:00+00:00', '192.168.1.0/24', 12.5);
+        INSERT INTO devices (identity, ip, os_guess, last_seen_scan)
+        VALUES ('192.168.1.7', '192.168.1.7', 'Linux 5.15', 1);
+        INSERT INTO scan_devices (scan_id, identity, ip)
+        VALUES (1, '192.168.1.7', '192.168.1.7');
+        """
+    )
+    conn.execute("PRAGMA user_version = 3")
+    conn.commit()
+    conn.close()
+
+    with SQLiteStore(path) as s:
+        assert s.conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert s.scan_mode(1) == "deep"  # pre-#39 history was always a deep scan
+        scans = s.list_scans()
+        assert [(x.id, x.mode, x.duration_seconds) for x in scans] == [(1, "deep", 12.5)]
+        assert s.load_devices()[0].os_guess == "Linux 5.15"  # old rows survive
 
 
 def test_up_host_without_ports_is_sighted(store):
@@ -538,3 +585,59 @@ def test_scan_exists(tmp_path):
     store.save_scan(fixture_scan("nmap_discovery.xml"), {}, ts=TS1)
     assert store.scan_exists(1)
     assert not store.scan_exists(2)
+
+
+def test_quick_scan_is_stored_with_its_mode(store):
+    """#39: a quick scan keeps presence data but stores no ports and no OS."""
+    quick = replace(fixture_scan("nmap_discovery.xml"), mode="quick")
+    scan_id, _ = store.save_scan(quick, {}, ts=TS1)
+
+    assert store.scan_mode(scan_id) == "quick"
+    assert [(s.id, s.mode) for s in store.list_scans()] == [(scan_id, "quick")]
+    # Presence is a sighting (#31), exactly like a deep scan: .10 and .20 are up.
+    assert store.sightings(scan_id) == {
+        "AA:BB:CC:DD:EE:01": "192.168.1.10",
+        "192.168.1.20": "192.168.1.20",
+    }
+    assert store.scan_ports(scan_id) == {}  # a quick scan probes nothing
+    devices = {d.identity: d for d in store.load_devices()}
+    assert devices["192.168.1.20"].os_guess is None
+
+
+def test_quick_scan_does_not_blank_learned_os(store):
+    """A quick scan learns nothing about OS, so COALESCE must keep the old guess."""
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    store.save_scan(replace(fixture_scan("nmap_discovery.xml"), mode="quick"), {}, ts=TS2)
+
+    devices = {d.identity: d for d in store.load_devices()}
+    assert devices["AA:BB:CC:DD:EE:01"].os_guess == "Linux 2.6.32 - 3.x"
+
+
+def test_diff_skips_port_changes_when_one_scan_is_quick(store):
+    """#39: a quick scan has no port data, so a port comparison would claim
+    every device "changed open ports" (deep -> quick) or opened everything
+    (quick -> deep). Presence diffing still works in both directions."""
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)  # deep, with ports
+    deep_id = store.latest_scan_id()
+    store.save_scan(replace(fixture_scan("nmap_discovery.xml"), mode="quick"), {}, ts=TS2)
+    quick_id = store.latest_scan_id()
+
+    deep_to_quick = store.diff_scans(deep_id, quick_id)
+    assert deep_to_quick.changed_devices == ()
+    assert deep_to_quick.new_devices == ()
+    assert deep_to_quick.gone_devices == ()  # both hosts answered both scans
+
+    quick_to_deep = store.diff_scans(quick_id, deep_id)
+    assert quick_to_deep.changed_devices == ()  # ports were not "newly opened"
+
+
+def test_quick_scan_still_reports_appeared_devices(store):
+    store.save_scan(scan_host_no_ports("192.168.1.30"), {}, ts=TS1)
+    first = store.latest_scan_id()
+    store.save_scan(replace(fixture_scan("nmap_discovery.xml"), mode="quick"), {}, ts=TS2)
+    second = store.latest_scan_id()
+
+    diff = store.diff_scans(first, second)
+    assert diff.new_devices == ("192.168.1.20", "AA:BB:CC:DD:EE:01")
+    assert diff.gone_devices == ("192.168.1.30",)
+    assert diff.changed_devices == ()

@@ -15,7 +15,8 @@
   <section class="scan-controls">
     <label for="target">Target subnet</label>
     <input id="target" type="text" placeholder="e.g. 192.168.0.0/24" spellcheck="false">
-    <button id="scan-btn">Scan</button>
+    <button id="quick-btn" title="Discovery only: which devices are up (seconds)">Quick scan</button>
+    <button id="deep-btn" title="Open ports, services and OS for every host (a few minutes)">Deep scan</button>
     <div class="progress"><div id="progress-bar"></div></div>
     <span id="scan-status">idle</span>
   </section>

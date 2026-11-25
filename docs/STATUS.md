@@ -5,9 +5,9 @@ NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
 service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
-**DONE** as of 2026-11-23 — future work is optional: the idea issues #39, #41
-and #43 (#40 and #42 were closed as `not_planned` by Falco on 2026-11-25). 168
-tests pass, ruff clean.
+**DONE** as of 2026-11-23 — future work is optional. The idea issues left are
+#41 and #43 (#39 quick-vs-deep shipped on 2026-11-25; #40 and #42 were closed
+as `not_planned` by Falco). 189 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -53,24 +53,26 @@ latest one is recorded as acceptance evidence on issue #10.
 - **Real nmap XML fixture** (branch `hermes/real-nmap-fixture`, this PR): `tests/fixtures/home_lan_complete_2026-11-25.xml` is Falco's completed 2026-11-25 scan (regular PowerShell, `nmap -sV -O -oX ... 192.168.0.0/24`, nmap 7.80, 599.73 s, **12 hosts up**, full `</nmaprun>` + `<runstats>`). MAC addresses are **redacted** by the new `scripts/redact_mac_addresses.py`: 11 values → `02:00:00:00:00:01`…`0B` in encounter order, every other byte identical (same 76,787 bytes; `diff` original→fixture shows exactly the 11 MAC lines). Provenance and both sha256s in `tests/fixtures/README.md`; the original stays with Falco, out of the repo. New tests: `test_real_home_lan_capture_inventory_matches_the_scan` and `test_real_home_lan_capture_ships_only_placeholder_macs` (parser, exact values from the scan) plus 3 in `tests/test_redact_script.py` (only MAC values change, deterministic, refuses half-redaction). 162 tests pass, ruff clean.
 - **Final housekeeping** (branch `hermes/housekeeping-docs`, this PR): closed the now-empty **"Bugfix backlog (code review #33-#38)" milestone** (6/0), deleted the **15 stale `hermes/*` branches** after verifying each (14 with a merged PR, `hermes/windows-ci-job` an ancestor of `main` with no unique commits), and recorded it in this STATUS. The clone now holds only `main`. Docs only — no code change.
 - **#34 OS hint — the optional polish, done** (branch `hermes/os-hint`, this PR): `GET /api/os-hint` answers `{"hint": null}` when the inventory is empty or any device has an OS guess, and a one-sentence explanation otherwise (`OS column is empty — OS detection (-O) needs admin on Windows or root on Linux/macOS, and some devices cannot be fingerprinted at all.`). The UI shows it under the **Devices** heading (hidden element, `textContent` only) and refreshes it after every scan; a failing hint never breaks the device table. **Derived, no schema change**: `ScanJob.os_detection_available` is in-process only, so the stored inventory is the source of truth after a reload. 168 tests pass (3 new in `tests/test_api.py`, 3 frontend guards in `tests/test_frontend_os_hint.py`, all 6 proven RED against `main`), ruff clean; verified in a real browser against two seeded DBs (devices without OS → hint visible; with `Linux 5.15` → hidden). Same PR also corrected the `pytest -q` gotcha in `docs/gotchas.md` (a *second* `-q` silences the summary line; `addopts` already has one) and refreshed this STATUS after Falco closed #40/#42.
+- **#39 quick vs deep scan** (branch `hermes/scan-modes`, this PR): the single Scan button is now **Quick scan** (`nmap -sn` only — discovery, seconds; no `probe_os()`, no service pass) and **Deep scan** (the existing `-sn` then `-sV -O` two-pass scan, still the default for API clients). `ScanResult.mode` carries `quick`/`deep`, `POST /api/scan` takes `{"target", "mode"}`, and the mode is stored per scan (`scans.mode`, **schema v4**, in-place `ALTER TABLE` defaulting old rows to `deep`). Scan history labels each scan; the status line says `pass 1/1` for a quick scan and the bar fills the whole width, while a deep scan still shows `pass 1/2` → `pass 2/2`. **Missing data is never shown as a negative fact**: `diff_scans` compares port sets only when both scans are deep (otherwise every device would read as "changed open ports"), `/api/devices` returns `ports_probed` and the Open ports cell says `not probed`, and `/api/os-hint` explains a quick scan instead of blaming privileges. 189 tests pass (14 new: 4 engine, 8 store incl. the v3→v4 upgrade, 7 API, 6 frontend guards — see `tests/test_frontend_scan_modes.py`), ruff clean; verified in a real browser against the real app with nmap faked (quick: `pass 1/1`, 2 hosts, `not probed`, hint; deep: `pass 1/2` → `pass 2/2`, ports + OS, hint gone; deep→quick: ports cells become `not probed`).
 
 ## In progress
-- **Nothing is in progress.** The bugfix backlog is finished: **#30–#38 are all CLOSED**, the milestone is closed, and there is no open bug issue. The optional #34 `-O` hint shipped in the `hermes/os-hint` PR. Remaining (optional): the idea issues **#39, #41, #43** only — #40 and #42 were closed `not_planned` by Falco on 2026-11-25.
+- **Nothing is in progress.** #39 (quick vs deep scan) is implemented in this PR. Remaining (optional): the idea issues **#41** (mDNS/NetBIOS name suggestions) and **#43** (CSV/JSON export, systemd unit, Docker image) only.
 
-## Handoff state (2026-11-25, after the #34 OS hint — read this first)
-- `main` = `81704b7` (PR #71 merged) + the squash-merge of this PR (`hermes/os-hint`). **No open PRs once it merges; the clone holds only `main`; nothing is in progress.** The stale local branch `hermes/final-handoff-2026-11-25` was deleted in this session (its PR #71 was squash-merged, so `git branch -D` was correct).
-- **Every bug from the Claude Code review is fixed and closed**: #30–#38 are CLOSED, the "Bugfix backlog (code review #33-#38)" milestone is CLOSED (6 closed / 0 open). No open bug issue exists.
-- **The optional #34 polish is DONE** (`GET /api/os-hint` + the hint under the Devices heading, derived with no schema change). Nothing agreed with Falco is outstanding.
-- Open issues: only **#39** (quick vs deep scan), **#41** (mDNS/NetBIOS names), **#43** (export / systemd unit / Docker image) — milestone "Ideas (later)", **3 open / 2 closed**. **#40 (scheduled scans + alerts) and #42 (per-device timeline) were closed `not_planned` by Falco on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them on your own.
-- **Suite: 168 tests pass, ruff clean**; CI green on ubuntu-latest + windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in PR #66).
+## Handoff state (2026-11-25, after #39 quick vs deep — read this first)
+- `main` = `2f691f0` (PR #72, the #34 OS hint) + the squash-merge of this PR (`hermes/scan-modes`). **No open PRs once it merges; nothing is in progress.**
+- **Every bug from the Claude Code review is fixed and closed**: #30–#38 are CLOSED, the "Bugfix backlog (code review #33-#38)" milestone is CLOSED. No open bug issue exists.
+- **Two optional items are done**: the #34 OS hint (`GET /api/os-hint`) and **#39 quick vs deep scan** (two buttons, `scans.mode`, schema v4). Nothing agreed with Falco is outstanding.
+- Open issues after this PR merges: **#41** (mDNS/NetBIOS name suggestions) and **#43** (CSV/JSON export, systemd unit, Docker image) — milestone "Ideas (later)" becomes **2 open / 3 closed**. **#40 and #42 were closed `not_planned` by Falco on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them on your own.
+- **Suite: 189 tests pass, ruff clean**; CI green on ubuntu-latest + windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in PR #66).
 - **A real fixture exists**: `tests/fixtures/home_lan_complete_2026-11-25.xml` — Falco's completed scan (12 hosts, nmap 7.80 on Windows, 599.73 s), MAC addresses mechanically redacted with `scripts/redact_mac_addresses.py`; provenance and both sha256s in `tests/fixtures/README.md`, the raw capture stays out of the repo.
-- **#34 is CLOSED**: root is required for `-O` on Linux/macOS (verified on Apollo); unprivileged Windows `-O` works via Npcap. The optional UX hint is now implemented (`GET /api/os-hint`, see the Done entry).
-- **Handoff timeline (all 2026-11-25)**: #65 docs handoff → #66 Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real fixture (MACs redacted) → #70 final housekeeping (branches deleted, milestone closed) → #71 final STATUS update → this PR (#34 OS hint + docs refresh).
+- **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place. `NETSCOPE_DB` databases from before this PR keep working — old scans read as `deep`.
+- **Handoff timeline (all 2026-11-25)**: #65 docs handoff → #66 Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real fixture (MACs redacted) → #70 final housekeeping → #71 final STATUS update → #72 #34 OS hint → this PR (#39 scan modes).
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
-1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (branch `hermes/os-hint`, this PR).
-2. Optional later: #41 mDNS/NetBIOS name suggestions, #43 CSV/JSON export, #39 quick vs deep scan. (#40 and #42 were closed `not_planned` by Falco — do not pick them up.)
-3. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
+1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (PR #72).
+2. ~~#39 quick scan vs deep scan~~ — **done** (this PR).
+3. Optional later: #41 mDNS/NetBIOS name suggestions, #43 CSV/JSON export + systemd unit + Docker image. (#40 and #42 were closed `not_planned` by Falco — do not pick them up.)
+4. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -91,7 +93,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 168 passed
+uv run pytest                 # 189 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
