@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///C:/Program Files (x86)/Nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.80 scan initiated Wed Nov 25 16:26:24 2026 as: &quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -sV -O -oX falco-nmap-testrun-finish.xml 192.168.0.0/24 -->
+<nmaprun scanner="nmap" args="&quot;C:\\Program Files (x86)\\Nmap\\nmap.exe&quot; -sV -O -oX falco-nmap-testrun-finish.xml 192.168.0.0/24" start="1795620384" startstr="Wed Nov 25 16:26:24 2026" version="7.80" xmloutputversion="1.04">
+<scaninfo type="syn" protocol="tcp" numservices="1000" services="1,3-4,6-7,9,13,17,19-26,30,32-33,37,42-43,49,53,70,79-85,88-90,99-100,106,109-111,113,119,125,135,139,143-144,146,161,163,179,199,211-212,222,254-256,259,264,280,301,306,311,340,366,389,406-407,416-417,425,427,443-445,458,464-465,481,497,500,512-515,524,541,543-545,548,554-555,563,587,593,616-617,625,631,636,646,648,666-668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800-801,808,843,873,880,888,898,900-903,911-912,981,987,990,992-993,995,999-1002,1007,1009-1011,1021-1100,1102,1104-1108,1110-1114,1117,1119,1121-1124,1126,1130-1132,1137-1138,1141,1145,1147-1149,1151-1152,1154,1163-1166,1169,1174-1175,1183,1185-1187,1192,1198-1199,1201,1213,1216-1218,1233-1234,1236,1244,1247-1248,1259,1271-1272,1277,1287,1296,1300-1301,1309-1311,1322,1328,1334,1352,1417,1433-1434,1443,1455,1461,1494,1500-1501,1503,1521,1524,1533,1556,1580,1583,1594,1600,1641,1658,1666,1687-1688,1700,1717-1721,1723,1755,1761,1782-1783,1801,1805,1812,1839-1840,1862-1864,1875,1900,1914,1935,1947,1971-1972,1974,1984,1998-2010,2013,2020-2022,2030,2033-2035,2038,2040-2043,2045-2049,2065,2068,2099-2100,2103,2105-2107,2111,2119,2121,2126,2135,2144,2160-2161,2170,2179,2190-2191,2196,2200,2222,2251,2260,2288,2301,2323,2366,2381-2383,2393-2394,2399,2401,2492,2500,2522,2525,2557,2601-2602,2604-2605,2607-2608,2638,2701-2702,2710,2717-2718,2725,2800,2809,2811,2869,2875,2909-2910,2920,2967-2968,2998,3000-3001,3003,3005-3007,3011,3013,3017,3030-3031,3052,3071,3077,3128,3168,3211,3221,3260-3261,3268-3269,3283,3300-3301,3306,3322-3325,3333,3351,3367,3369-3372,3389-3390,3404,3476,3493,3517,3527,3546,3551,3580,3659,3689-3690,3703,3737,3766,3784,3800-3801,3809,3814,3826-3828,3851,3869,3871,3878,3880,3889,3905,3914,3918,3920,3945,3971,3986,3995,3998,4000-4006,4045,4111,4125-4126,4129,4224,4242,4279,4321,4343,4443-4446,4449,4550,4567,4662,4848,4899-4900,4998,5000-5004,5009,5030,5033,5050-5051,5054,5060-5061,5080,5087,5100-5102,5120,5190,5200,5214,5221-5222,5225-5226,5269,5280,5298,5357,5405,5414,5431-5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678-5679,5718,5730,5800-5802,5810-5811,5815,5822,5825,5850,5859,5862,5877,5900-5904,5906-5907,5910-5911,5915,5922,5925,5950,5952,5959-5963,5987-5989,5998-6007,6009,6025,6059,6100-6101,6106,6112,6123,6129,6156,6346,6389,6502,6510,6543,6547,6565-6567,6580,6646,6666-6669,6689,6692,6699,6779,6788-6789,6792,6839,6881,6901,6969,7000-7002,7004,7007,7019,7025,7070,7100,7103,7106,7200-7201,7402,7435,7443,7496,7512,7625,7627,7676,7741,7777-7778,7800,7911,7920-7921,7937-7938,7999-8002,8007-8011,8021-8022,8031,8042,8045,8080-8090,8093,8099-8100,8180-8181,8192-8194,8200,8222,8254,8290-8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651-8652,8654,8701,8800,8873,8888,8899,8994,9000-9003,9009-9011,9040,9050,9071,9080-9081,9090-9091,9099-9103,9110-9111,9200,9207,9220,9290,9415,9418,9485,9500,9502-9503,9535,9575,9593-9595,9618,9666,9876-9878,9898,9900,9917,9929,9943-9944,9968,9998-10004,10009-10010,10012,10024-10025,10082,10180,10215,10243,10566,10616-10617,10621,10626,10628-10629,10778,11110-11111,11967,12000,12174,12265,12345,13456,13722,13782-13783,14000,14238,14441-14442,15000,15002-15004,15660,15742,16000-16001,16012,16016,16018,16080,16113,16992-16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221-20222,20828,21571,22939,23502,24444,24800,25734-25735,26214,27000,27352-27353,27355-27356,27715,28201,30000,30718,30951,31038,31337,32768-32785,33354,33899,34571-34573,35500,38292,40193,40911,41511,42510,44176,44442-44443,44501,45100,48080,49152-49161,49163,49165,49167,49175-49176,49400,49999-50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055-55056,55555,55600,56737-56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1795620385" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.1" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:01" addrtype="mac"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="995">
+<extrareasons reason="resets" count="995"/>
+</extraports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="tcpwrapped" tunnel="ssl" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8081"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="blackice-icecap" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8082"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="Mongoose httpd" method="probed" conf="10"><cpe>cpe:/a:cesanta:mongoose</cpe></service></port>
+<port protocol="tcp" portid="8888"><state state="filtered" reason="no-response" reason_ttl="0"/><service name="sun-answerbook" method="table" conf="3"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="8082"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="36128"/>
+<osmatch name="Scientific Atlanta WebSTAR EPC2203 cable modem" accuracy="97" line="95995">
+<osclass type="broadband router" vendor="Scientific Atlanta" osfamily="embedded" accuracy="97"><cpe>cpe:/h:scientificatlanta:webstar_epc2203</cpe></osclass>
+</osmatch>
+<osmatch name="IBM AIX 5.3" accuracy="96" line="38114">
+<osclass type="general purpose" vendor="IBM" osfamily="AIX" osgen="5.X" accuracy="96"><cpe>cpe:/o:ibm:aix:5.3</cpe></osclass>
+</osmatch>
+<osmatch name="Avaya P130 workgroup switch" accuracy="94" line="8586">
+<osclass type="switch" vendor="Avaya" osfamily="embedded" accuracy="94"/>
+</osmatch>
+<osmatch name="Schweitzer Engineering SEL-2701 Ethernet processor" accuracy="93" line="95941">
+<osclass type="specialized" vendor="Schweitzer Engineering" osfamily="embedded" accuracy="93"><cpe>cpe:/h:schweitzerengineering:sel-2701</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPod touch audio player (iPhone OS 2.2)" accuracy="93" line="4597">
+<osclass type="media device" vendor="Apple" osfamily="iPhone OS" osgen="2.X" accuracy="93"><cpe>cpe:/o:apple:iphone_os:2.2</cpe></osclass>
+</osmatch>
+<osmatch name="FreeBSD 4.7-STABLE" accuracy="92" line="26715">
+<osclass type="general purpose" vendor="FreeBSD" osfamily="FreeBSD" osgen="4.X" accuracy="92"><cpe>cpe:/o:freebsd:freebsd:4.7</cpe></osclass>
+</osmatch>
+<osmatch name="Aastra 57i VoIP phone" accuracy="92" line="1146">
+<osclass type="VoIP phone" vendor="Aastra" osfamily="embedded" accuracy="92"><cpe>cpe:/h:aastra:57i</cpe></osclass>
+</osmatch>
+<osmatch name="Ricoh Aficio MP C4501 printer" accuracy="92" line="94420">
+<osclass type="printer" vendor="Ricoh" osfamily="embedded" accuracy="92"><cpe>cpe:/h:ricoh:aficio_mp_c4501</cpe></osclass>
+</osmatch>
+<osmatch name="APC Smart-UPS 3000 RM UPS" accuracy="90" line="3249">
+<osclass type="power-device" vendor="APC" osfamily="embedded" accuracy="90"/>
+</osmatch>
+<osmatch name="HP LaserJet 2600n printer" accuracy="90" line="32864">
+<osclass type="printer" vendor="HP" osfamily="embedded" accuracy="90"><cpe>cpe:/h:hp:laserjet_2600n</cpe></osclass>
+</osmatch>
+<osfingerprint fingerprint="OS:SCAN(V=7.80%E=4%D=11/25%OT=8082%CT=1%CU=36128%PV=Y%DS=1%DC=D%G=Y%M=80787&#xa;OS:1%TM=6B070058%P=i686-pc-windows-windows)SEQ(SP=101%GCD=1%ISR=10E%TI=RD%C&#xa;OS:I=I%II=I%TS=9)SEQ(SP=F1%GCD=1%ISR=110%TI=I%CI=I%II=I%SS=O%TS=7)SEQ(SP=10&#xa;OS:1%GCD=1%ISR=10E%CI=I%II=I%TS=7)SEQ(CI=I%II=I)OPS(O1=M200NW0NNT11%O2=M200&#xa;OS:NW0NNT11%O3=M200NW0NNT11%O4=M200NW0NNT11%O5=M200NW0NNT11%O6=M200NNT11)WI&#xa;OS:N(W1=4000%W2=4000%W3=4000%W4=4000%W5=4000%W6=4000)ECN(R=Y%DF=N%T=40%W=40&#xa;OS:00%O=M200NW0%CC=N%Q=)T1(R=Y%DF=N%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R=&#xa;OS:Y%DF=N%T=40%W=4000%S=O%A=S+%F=AS%O=M200NW0NNT11%RD=0%Q=)T4(R=Y%DF=N%T=40&#xa;OS:%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=N%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q&#xa;OS:=)T6(R=Y%DF=N%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=N%T=40%W=0%S=Z%A&#xa;OS:=S%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=38%UN=0%RIPL=G%RID=G%RIPCK=G%RUC&#xa;OS:K=0%RUD=G)IE(R=Y%DFI=S%T=40%CD=S)&#xa;"/>
+</os>
+<distance value="1"/>
+<times srtt="6416" rttvar="3767" to="100000"/>
+</host>
+<host starttime="1795620393" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.2" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:02" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="filtered" count="998">
+<extrareasons reason="no-responses" count="998"/>
+</extraports>
+<port protocol="tcp" portid="53"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="domain" product="dnsmasq" version="gen_2.80_v1.0.6" method="probed" conf="10"><cpe>cpe:/a:thekelleys:dnsmasq:gen_2.80_v1.0.6</cpe></service></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="Octoshape P2P streaming web service" method="probed" conf="10"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="53"/>
+<osmatch name="Linux 2.6.17 - 2.6.36" accuracy="100" line="48567">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6</cpe></osclass>
+</osmatch>
+</os>
+<uptime seconds="2620401" lastboot="Mon Oct 26 08:42:31 2026"/>
+<distance value="1"/>
+<tcpsequence index="201" difficulty="Good luck!" values="DE9B97DC,DE4EA523,DEC62C74,DE58C1C7,DE768FE5,DF397B89"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0,0"/>
+<tcptssequence class="other" values="1F3CA48A,1F3CA49F,1F3CA4B5,1F3CA4CB,1F3CA4E0,1F3CA4F6"/>
+<times srtt="9524" rttvar="8746" to="100000"/>
+</host>
+<host starttime="1795620385" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.4" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:03" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="filtered" count="998">
+<extrareasons reason="no-responses" count="998"/>
+</extraports>
+<port protocol="tcp" portid="53"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="domain" product="dnsmasq" version="gen_2.80_v1.0.6" method="probed" conf="10"><cpe>cpe:/a:thekelleys:dnsmasq:gen_2.80_v1.0.6</cpe></service></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="Octoshape P2P streaming web service" method="probed" conf="10"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="53"/>
+<osmatch name="Linux 2.6.17 - 2.6.36" accuracy="100" line="48567">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6</cpe></osclass>
+</osmatch>
+</os>
+<uptime seconds="2618006" lastboot="Mon Oct 26 09:22:26 2026"/>
+<distance value="1"/>
+<tcpsequence index="207" difficulty="Good luck!" values="D5EB636C,D5D473D8,D5F0F88F,D6591322,D626DF46,D731FCD2"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0,0"/>
+<tcptssequence class="other" values="1F3554ED,1F355503,1F355519,1F35552E,1F355544,1F355559"/>
+<times srtt="932" rttvar="126" to="100000"/>
+</host>
+<host starttime="1795620385" endtime="1795620952"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.5" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:04" addrtype="mac" vendor="Google"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="995">
+<extrareasons reason="resets" count="995"/>
+</extraports>
+<port protocol="tcp" portid="8008"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8009"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ajp13" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="https-alt" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="9000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="cslistener" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="10001"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="scp-config" tunnel="ssl" method="table" conf="3"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="8008"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="43720"/>
+<osmatch name="Linux 2.6.32 - 3.10" accuracy="100" line="56381">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6</cpe></osclass>
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:3</cpe></osclass>
+</osmatch>
+</os>
+<uptime seconds="41826" lastboot="Wed Nov 25 04:58:46 2026"/>
+<distance value="1"/>
+<tcpsequence index="262" difficulty="Good luck!" values="FC18B5C6,60AFF0E2,E9A23882,F0345F0A,798F955F,BB725AFE"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0,0"/>
+<tcptssequence class="100HZ" values="3FBA32,3FBA3D,3FBA48,3FBA53,3FBA5D,3FBA68"/>
+<times srtt="13308" rttvar="9280" to="100000"/>
+</host>
+<host starttime="1795620385" endtime="1795620952"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.6" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:05" addrtype="mac" vendor="Frontier Silicon"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="993">
+<extrareasons reason="resets" count="993"/>
+</extraports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="webdav" servicefp="SF-Port80-TCP:V=7.80%I=7%D=11/25%Time=6B06FF99%P=i686-pc-windows-windows%r(GetRequest,B9D,&quot;HTTP/1\.1\x20200\x20OK\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nCache-Control:\x20max-age=3600\r\nLast-Modified:\x20Mon,\x2005\x20Oct\x202020\x2008:27:40\x20GMT\r\nEtag:\x20\&quot;5f7ad8fc\.2731\&quot;\r\nContent-Type:\x20text/html\r\nContent-Length:\x202731\r\nConnection:\x20close\r\nAccept-Ranges:\x20bytes\r\n\r\n&lt;!DOCTYPE\x20HTML\x20PUBLIC\x20\&quot;-//W3C//DTD\x20HTML\x204\.01//EN\&quot;\x20\&quot;http://www\.w3\.org/TR/html4/strict\.dtd\&quot;&gt;\r\n&lt;html&gt;\r\n\t&lt;head&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;content-type\&quot;\x20content=\&quot;text/html;charset=UTF-8\&quot;&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;cache-control\&quot;\x20content=\&quot;no-cache\&quot;&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;pragma\&quot;\x20content=\&quot;no-cache\&quot;&gt;\r\n\t\t&lt;meta\x20name=\&quot;viewport\&quot;\x20content=\&quot;width=520,\x20maximum-scale=2\.0\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;shortcut\x20icon\&quot;\x20href=\&quot;images/favicon\.ico\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;stylesheet\&quot;\x20href=\&quot;css/base/style-screen\.css\&quot;\x20type=\&quot;text/css\&quot;\x20media=\&quot;screen\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;stylesheet\&quot;\x20href=\&quot;css/base/style-handheld\.css\&quot;\x20type=\&quot;text/css\&quot;\x20media=\&quot;handheld\&quot;&gt;\r\n\t\t&lt;script\x20type=\&quot;text/javascript\&quot;\x20src=\&quot;js/jquery-1\.6\.2\.min\.js\&quot;&gt;&lt;/scr&quot;)%r(HTTPOptions,9B,&quot;HTTP/1\.1\x20200\x20OK\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nConnection:\x20close\r\nAllow:\x20GET,\x20POST,\x20HEAD,\x20CONNECT,\x20PUT,\x20DELETE,\x20OPTIONS,\x20PROPFIND,\x20MKCOL\r\nDAV:\x201\r\n\r\n&quot;)%r(SIPOptions,105,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate,\x20private,\x20max-age=0\r\nPragma:\x20no-cache\r\nExpires:\x200\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nConnection:\x20close\r\n\r\nError\x20400:\x20Bad\x20Request\nBad\x20request&quot;);" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8008"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8009"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ajp13" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8080"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="webdav" servicefp="SF-Port8080-TCP:V=7.80%I=7%D=11/25%Time=6B06FF99%P=i686-pc-windows-windows%r(GetRequest,B9D,&quot;HTTP/1\.1\x20200\x20OK\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nCache-Control:\x20max-age=3600\r\nLast-Modified:\x20Mon,\x2005\x20Oct\x202020\x2008:27:40\x20GMT\r\nEtag:\x20\&quot;5f7ad8fc\.2731\&quot;\r\nContent-Type:\x20text/html\r\nContent-Length:\x202731\r\nConnection:\x20close\r\nAccept-Ranges:\x20bytes\r\n\r\n&lt;!DOCTYPE\x20HTML\x20PUBLIC\x20\&quot;-//W3C//DTD\x20HTML\x204\.01//EN\&quot;\x20\&quot;http://www\.w3\.org/TR/html4/strict\.dtd\&quot;&gt;\r\n&lt;html&gt;\r\n\t&lt;head&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;content-type\&quot;\x20content=\&quot;text/html;charset=UTF-8\&quot;&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;cache-control\&quot;\x20content=\&quot;no-cache\&quot;&gt;\r\n\t\t&lt;meta\x20http-equiv=\&quot;pragma\&quot;\x20content=\&quot;no-cache\&quot;&gt;\r\n\t\t&lt;meta\x20name=\&quot;viewport\&quot;\x20content=\&quot;width=520,\x20maximum-scale=2\.0\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;shortcut\x20icon\&quot;\x20href=\&quot;images/favicon\.ico\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;stylesheet\&quot;\x20href=\&quot;css/base/style-screen\.css\&quot;\x20type=\&quot;text/css\&quot;\x20media=\&quot;screen\&quot;&gt;\r\n\t\t&lt;link\x20rel=\&quot;stylesheet\&quot;\x20href=\&quot;css/base/style-handheld\.css\&quot;\x20type=\&quot;text/css\&quot;\x20media=\&quot;handheld\&quot;&gt;\r\n\t\t&lt;script\x20type=\&quot;text/javascript\&quot;\x20src=\&quot;js/jquery-1\.6\.2\.min\.js\&quot;&gt;&lt;/scr&quot;)%r(HTTPOptions,9B,&quot;HTTP/1\.1\x20200\x20OK\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nConnection:\x20close\r\nAllow:\x20GET,\x20POST,\x20HEAD,\x20CONNECT,\x20PUT,\x20DELETE,\x20OPTIONS,\x20PROPFIND,\x20MKCOL\r\nDAV:\x201\r\n\r\n&quot;)%r(SIPOptions,105,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate,\x20private,\x20max-age=0\r\nPragma:\x20no-cache\r\nExpires:\x200\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:41\x20GMT\r\nConnection:\x20close\r\n\r\nError\x20400:\x20Bad\x20Request\nBad\x20request&quot;);" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="https-alt" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="9000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="cslistener" tunnel="ssl" method="table" conf="3"/></port>
+<port protocol="tcp" portid="10001"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="scp-config" tunnel="ssl" method="table" conf="3"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="80"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="40280"/>
+<osmatch name="Linux 2.6.32 - 3.10" accuracy="100" line="56381">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6</cpe></osclass>
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:3</cpe></osclass>
+</osmatch>
+</os>
+<uptime seconds="79321" lastboot="Tue Nov 24 18:33:51 2026"/>
+<distance value="1"/>
+<tcpsequence index="261" difficulty="Good luck!" values="84D7A5B3,28695B61,86141DE,842CC732,589E2EED,789830D1"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0,0"/>
+<tcptssequence class="100HZ" values="78F0E2,78F0E2,78F0EC,78F100,78F100,78F115"/>
+<times srtt="37071" rttvar="33682" to="171799"/>
+</host>
+<host starttime="1795620385" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.11" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:06" addrtype="mac"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="994">
+<extrareasons reason="resets" count="994"/>
+</extraports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="10.0" extrainfo="protocol 2.0" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:10.0</cpe></service></port>
+<port protocol="tcp" portid="88"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="kerberos-sec" product="Heimdal Kerberos" extrainfo="server time: 2026-11-25 15:32:41Z" method="probed" conf="10"><cpe>cpe:/a:heimdal:kerberos</cpe></service></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="microsoft-ds" method="table" conf="3"/></port>
+<port protocol="tcp" portid="3000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ppp" servicefp="SF-Port3000-TCP:V=7.80%I=7%D=11/25%Time=6B06FFA0%P=i686-pc-windows-windows%r(GetRequest,18C6,&quot;HTTP/1\.1\x20200\x20OK\r\nStrict-Transport-Security:\x20max-age=63072000;\x20includeSubDomains;\x20preload\r\nX-Content-Type-Options:\x20nosniff\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x201;\x20mode=block\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nPermissions-Policy:\x20camera=\(\),\x20microphone=\(\),\x20geolocation=\(\)\r\nx-clerk-auth-reason:\x20dev-browser-missing\r\nx-clerk-auth-status:\x20signed-out\r\nx-middleware-rewrite:\x20/\r\nVary:\x20rsc,\x20next-router-state-tree,\x20next-router-prefetch,\x20next-router-segment-prefetch,\x20Accept-Encoding\r\nlink:\x20&lt;/_next/static/media/797e433ab948586e-s\.p\.0r6juujl39pe6\.woff2&gt;;\x20rel=preload;\x20as=\&quot;font\&quot;;\x20crossorigin=\&quot;\&quot;;\x20type=\&quot;font/woff2\&quot;,\x20&lt;/_next/static/chunks/%5Broot-of-the-server%5D__0d2rtw4\._\.css&gt;;\x20rel=preload;\x20as=\&quot;style\&quot;\r\nCache-Control:\x20no-cache,\x20must-revalidate\r\nX-Powered-By:\x20Next\.js\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:48\x20GMT\r\nConnection:\x20close\r\n\r\n&lt;!DOCTYPE\x20html&gt;&lt;html\x20lan&quot;)%r(Help,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(NCP,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(HTTPOptions,221,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nStrict-Transport-Security:\x20max-age=63072000;\x20includeSubDomains;\x20preload\r\nX-Content-Type-Options:\x20nosniff\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x201;\x20mode=block\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nPermissions-Policy:\x20camera=\(\),\x20microphone=\(\),\x20geolocation=\(\)\r\nx-clerk-auth-reason:\x20dev-browser-missing\r\nx-clerk-auth-status:\x20signed-out\r\nx-middleware-rewrite:\x20/\r\nvary:\x20rsc,\x20next-router-state-tree,\x20next-router-prefetch,\x20next-router-segment-prefetch\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:48\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;)%r(RTSPRequest,221,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nStrict-Transport-Security:\x20max-age=63072000;\x20includeSubDomains;\x20preload\r\nX-Content-Type-Options:\x20nosniff\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x201;\x20mode=block\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nPermissions-Policy:\x20camera=\(\),\x20microphone=\(\),\x20geolocation=\(\)\r\nx-clerk-auth-reason:\x20dev-browser-missing\r\nx-clerk-auth-status:\x20signed-out\r\nx-middleware-rewrite:\x20/\r\nvary:\x20rsc,\x20next-router-state-tree,\x20next-router-prefetch,\x20next-router-segment-prefetch\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:48\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="4000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="remoteanything" servicefp="SF-Port4000-TCP:V=7.80%I=7%D=11/25%Time=6B06FF9F%P=i686-pc-windows-windows%r(GetRequest,7D,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\ncontent-type:\x20text/plain;\x20charset=UTF-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:47\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;)%r(NoMachine,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(HTTPOptions,7D,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\ncontent-type:\x20text/plain;\x20charset=UTF-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:52\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;)%r(RTSPRequest,7D,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\ncontent-type:\x20text/plain;\x20charset=UTF-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:52\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;)%r(RPCCheck,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(DNSVersionBindReqTCP,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(DNSStatusRequestTCP,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(Help,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(SSLSessionReq,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(TerminalServerCookie,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(TLSSessionReq,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(Kerberos,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(SMBProgNeg,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(X11Probe,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(FourOhFourRequest,7D,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\ncontent-type:\x20text/plain;\x20charset=UTF-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:52\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;)%r(LPDString,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(LDAPSearchReq,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(LDAPBindReq,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(SIPOptions,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="5900"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="vnc" product="Apple remote desktop vnc" ostype="Mac OS X" method="probed" conf="10"><cpe>cpe:/o:apple:mac_os_x</cpe></service></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="22"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="40985"/>
+<osmatch name="Apple TV 5" accuracy="96" line="3341">
+<osclass type="media device" vendor="Apple" osfamily="Apple TV" osgen="5.X" accuracy="96"><cpe>cpe:/o:apple:apple_tv:5</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iOS 11.0" accuracy="96" line="3607">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="11.X" accuracy="96"><cpe>cpe:/o:apple:iphone_os:11.0</cpe></osclass>
+</osmatch>
+<osmatch name="Apple OS X 10.11 (El Capitan) - 10.12 (Sierra) or iOS 10.1 - 10.2 (Darwin 15.4.0 - 16.6.0)" accuracy="90" line="7509">
+<osclass type="general purpose" vendor="Apple" osfamily="OS X" osgen="10.11.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.11</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="macOS" osgen="10.12.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.12</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="10.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:10</cpe></osclass>
+</osmatch>
+<osmatch name="Apple TV 5.2.1 or 5.3" accuracy="89" line="3360">
+<osclass type="media device" vendor="Apple" osfamily="Apple TV" osgen="5.X" accuracy="89"><cpe>cpe:/a:apple:apple_tv:5.2.1</cpe><cpe>cpe:/a:apple:apple_tv:5.3</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.6.5 (Snow Leopard) (Darwin 10.5.0)" accuracy="89" line="6271">
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.6.X" accuracy="89"><cpe>cpe:/o:apple:mac_os_x:10.6.5</cpe></osclass>
+</osmatch>
+<osmatch name="Apple macOS 10.12.5 (Sierra)" accuracy="87" line="7133">
+<osclass type="general purpose" vendor="Apple" osfamily="macOS" osgen="10.12.X" accuracy="87"><cpe>cpe:/o:apple:mac_os_x:10.12.5</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPad tablet computer (iOS 4.3.2)" accuracy="87" line="3663">
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="87"><cpe>cpe:/o:apple:iphone_os:4.3.2</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPad tablet computer or iPhone mobile phone (iOS 4.0 - 4.1)" accuracy="87" line="3800">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="87"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPhone mobile phone (iOS 4.3.2)" accuracy="87" line="3836">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="87"><cpe>cpe:/o:apple:iphone_os:4.3.2</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.5 (Leopard) - 10.6.8 (Snow Leopard) or iOS 4.0 - 4.2.1 (Darwin 9.0.0b5 - 10.8.0)" accuracy="87" line="3895">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="87"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="87"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.6.X" accuracy="87"><cpe>cpe:/o:apple:mac_os_x:10.6</cpe></osclass>
+</osmatch>
+<osfingerprint fingerprint="OS:SCAN(V=7.80%E=4%D=11/25%OT=22%CT=1%CU=40985%PV=Y%DS=1%DC=D%G=Y%M=1CF64C%&#xa;OS:TM=6B070058%P=i686-pc-windows-windows)SEQ(SP=FE%GCD=1%ISR=10B%TI=Z%CI=RD&#xa;OS:%II=RI%TS=22)SEQ(CI=RD%II=RI)OPS(O1=M5B4NW6NNT11SLL%O2=M5B4NW6NNT11SLL%O&#xa;OS:3=M5B4NW6NNT11%O4=M5B4NW6NNT11SLL%O5=M5B4NW6NNT11SLL%O6=M5B4NNT11SLL)WIN&#xa;OS:(W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=40%W=FFF&#xa;OS:F%O=M5B4NW6SLL%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(&#xa;OS:R=N)T4(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=N%T=40%W=0%S=Z&#xa;OS:%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y&#xa;OS:%DF=N%T=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=38%UN=0%RIPL&#xa;OS:=G%RID=G%RIPCK=G%RUCK=0%RUD=G)IE(R=Y%DFI=S%T=40%CD=S)&#xa;"/>
+</os>
+<uptime seconds="52" lastboot="Wed Nov 25 16:35:00 2026"/>
+<distance value="1"/>
+<tcpsequence index="254" difficulty="Good luck!" values="13B8D0FA,900BD1E2,571FFA78,1727C4EB,8422FCCE"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0"/>
+<tcptssequence class="other" values="6B85C4FB,CF22CAF0,3829E2E6,F2DA9DA9,8337268F"/>
+<times srtt="7539" rttvar="5424" to="100000"/>
+</host>
+<host starttime="1795620385" endtime="1795620952"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.12" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:07" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="filtered" count="999">
+<extrareasons reason="no-responses" count="999"/>
+</extraports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" servicefp="SF-Port80-TCP:V=7.80%I=7%D=11/25%Time=6B06FF9F%P=i686-pc-windows-windows%r(GetRequest,111C,&quot;HTTP/1\.1\x20200\x20OK\r\nConnection:\x20close\r\nContent-Type:\x20text/html\r\nCache-Control:no-cache\r\nPragma:no-cache\r\nExpires:wed,\x2010\x20Oct\x201997\x2008:21:57\x20GMT\r\n\r\n&lt;script&gt;\nvar\x20logonInfo\x20=\x20new\x20Array\(\n0,\n0,0\);\nvar\x20g_Lan\x20=\x20388;\nvar\x20g_year=2022;\n&lt;/script&gt;\n\x20&lt;head&gt;\x20&lt;meta\x20http-equiv=pragma\x20content=no-cache&gt;\x20&lt;meta\x20http-equiv=expires\x20content=\&quot;wed,\x2026\x20Feb\x201997\x2008:21:57\x20GMT\&quot;&gt;\x20&lt;script&gt;window\.parent!=window&amp;&amp;\(window\.parent\.location=\&quot;/\&quot;\);var\x20account_restored=0,errType=logonInfo\[0\];function\x20goUrl\(e\){window\.open\(e,\&quot;\&quot;,\&quot;\&quot;\)}function\x20resize\(e\){var\x20t,o;o=document\.all\?\(t=document\.body\.offsetWidth,document\.body\.offsetHeight\):\(t=window\.innerWidth,window\.innerHeight\),document\.getElementById\(e\)\.style\.left=\.5\*\(t-400\),document\.getElementById\(e\)\.style\.top=\.3\*\(o-300\)}function\x20doClear\(\){document\.getElementById\(\&quot;username\&quot;\)\.value=\&quot;\&quot;,document\.getElementById\(\&quot;password\&quot;\)\.value=\&quot;\&quot;,document\.getElementById\(\&quot;cpassword\&quot;\)\.value=\&quot;\&quot;,window\.focus&amp;&amp;sel&quot;)%r(FourOhFourRequest,111C,&quot;HTTP/1\.1\x20200\x20OK\r\nConnection:\x20close\r\nContent-Type:\x20text/html\r\nCache-Control:no-cache\r\nPragma:no-cache\r\nExpires:wed,\x2010\x20Oct\x201997\x2008:21:57\x20GMT\r\n\r\n&lt;script&gt;\nvar\x20logonInfo\x20=\x20new\x20Array\(\n0,\n0,0\);\nvar\x20g_Lan\x20=\x20388;\nvar\x20g_year=2022;\n&lt;/script&gt;\n\x20&lt;head&gt;\x20&lt;meta\x20http-equiv=pragma\x20content=no-cache&gt;\x20&lt;meta\x20http-equiv=expires\x20content=\&quot;wed,\x2026\x20Feb\x201997\x2008:21:57\x20GMT\&quot;&gt;\x20&lt;script&gt;window\.parent!=window&amp;&amp;\(window\.parent\.location=\&quot;/\&quot;\);var\x20account_restored=0,errType=logonInfo\[0\];function\x20goUrl\(e\){window\.open\(e,\&quot;\&quot;,\&quot;\&quot;\)}function\x20resize\(e\){var\x20t,o;o=document\.all\?\(t=document\.body\.offsetWidth,document\.body\.offsetHeight\):\(t=window\.innerWidth,window\.innerHeight\),document\.getElementById\(e\)\.style\.left=\.5\*\(t-400\),document\.getElementById\(e\)\.style\.top=\.3\*\(o-300\)}function\x20doClear\(\){document\.getElementById\(\&quot;username\&quot;\)\.value=\&quot;\&quot;,document\.getElementById\(\&quot;password\&quot;\)\.value=\&quot;\&quot;,document\.getElementById\(\&quot;cpassword\&quot;\)\.value=\&quot;\&quot;,window\.focus&amp;&amp;sel&quot;);" method="probed" conf="10"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="80"/>
+<osmatch name="Silicondust HDHomeRun set top box" accuracy="87" line="97336">
+<osclass type="media device" vendor="Silicondust" osfamily="embedded" accuracy="87"><cpe>cpe:/h:silicondust:hdhr</cpe></osclass>
+</osmatch>
+<osmatch name="Kyocera FS2000D printer" accuracy="85" line="42010">
+<osclass type="printer" vendor="Kyocera" osfamily="embedded" accuracy="85"><cpe>cpe:/h:kyocera:fs2000d</cpe></osclass>
+</osmatch>
+</os>
+<distance value="1"/>
+<tcpsequence index="0" difficulty="Trivial joke" values="10000000,10000000,10000000,10000000,10000000,10000000"/>
+<ipidsequence class="Incremental" values="11FD,11FE,11FF,1200,1201,1202"/>
+<tcptssequence class="none returned (unsupported)"/>
+<times srtt="11131" rttvar="7215" to="100000"/>
+</host>
+<host starttime="1795620391" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.13" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:08" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="994">
+<extrareasons reason="resets" count="994"/>
+</extraports>
+<port protocol="tcp" portid="88"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="kerberos-sec" product="Heimdal Kerberos" extrainfo="server time: 2026-11-25 15:32:47Z" method="probed" conf="10"><cpe>cpe:/a:heimdal:kerberos</cpe></service></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="microsoft-ds" method="table" conf="3"/></port>
+<port protocol="tcp" portid="3000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ppp" servicefp="SF-Port3000-TCP:V=7.80%I=7%D=11/25%Time=6B06FFA4%P=i686-pc-windows-windows%r(GetRequest,2BAC,&quot;HTTP/1\.1\x20200\x20OK\r\nStrict-Transport-Security:\x20max-age=63072000;\x20includeSubDomains;\x20preload\r\nX-Content-Type-Options:\x20nosniff\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x201;\x20mode=block\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nPermissions-Policy:\x20camera=\(\),\x20microphone=\(\),\x20geolocation=\(\)\r\nset-cookie:\x20mowd_locale=nl;\x20Path=/;\x20Expires=Thu,\x2025\x20Nov\x202027\x2015:32:52\x20GMT;\x20Max-Age=31536000;\x20SameSite=lax\r\nx-clerk-auth-reason:\x20dev-browser-missing\r\nx-clerk-auth-status:\x20signed-out\r\nx-domain-access-mode:\x20public\r\nx-domain-environment:\x20dev\r\nx-domain-homepage:\x20marketing\r\nx-middleware-rewrite:\x20/\r\nVary:\x20rsc,\x20next-router-state-tree,\x20next-router-prefetch,\x20next-router-segment-prefetch,\x20Accept-Encoding\r\nlink:\x20&lt;/&gt;;\x20rel=preconnect;\x20crossorigin=\&quot;\&quot;,\x20&lt;/_next/static/chunks/_e649324c\._\.css&gt;;\x20rel=preload;\x20as=\&quot;style\&quot;\r\nCache-Control:\x20no-store,\x20must-revalidate\r\nX-Powered-By:\x20Next\.js\r\nContent-Type:\x20text/html;\x20charset=utf-8&quot;)%r(Help,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(NCP,2F,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nConnection:\x20close\r\n\r\n&quot;)%r(HTTPOptions,2E3,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nStrict-Transport-Security:\x20max-age=63072000;\x20includeSubDomains;\x20preload\r\nX-Content-Type-Options:\x20nosniff\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x201;\x20mode=block\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nPermissions-Policy:\x20camera=\(\),\x20microphone=\(\),\x20geolocation=\(\)\r\nset-cookie:\x20mowd_locale=nl;\x20Path=/;\x20Expires=Thu,\x2025\x20Nov\x202027\x2015:32:52\x20GMT;\x20Max-Age=31536000;\x20SameSite=lax\r\nx-clerk-auth-reason:\x20dev-browser-missing\r\nx-clerk-auth-status:\x20signed-out\r\nx-domain-access-mode:\x20public\r\nx-domain-environment:\x20dev\r\nx-domain-homepage:\x20marketing\r\nx-middleware-rewrite:\x20/\r\nvary:\x20rsc,\x20next-router-state-tree,\x20next-router-prefetch,\x20next-router-segment-prefetch\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:52\x20GMT\r\nConnection:\x20close\r\n\r\n&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="5000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="rtsp" product="AirTunes rtspd" version="775.3.1" method="probed" conf="10"><cpe>cpe:/a:apple:airtunes:775.3.1</cpe></service></port>
+<port protocol="tcp" portid="5900"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="vnc" product="Apple remote desktop vnc" ostype="Mac OS X" method="probed" conf="10"><cpe>cpe:/o:apple:mac_os_x</cpe></service></port>
+<port protocol="tcp" portid="7000"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="rtsp" product="AirTunes rtspd" version="775.3.1" method="probed" conf="10"><cpe>cpe:/a:apple:airtunes:775.3.1</cpe></service></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="88"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="40581"/>
+<osmatch name="Apple iOS 11.0" accuracy="94" line="3607">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="11.X" accuracy="94"><cpe>cpe:/o:apple:iphone_os:11.0</cpe></osclass>
+</osmatch>
+<osmatch name="Apple TV 5" accuracy="93" line="3341">
+<osclass type="media device" vendor="Apple" osfamily="Apple TV" osgen="5.X" accuracy="93"><cpe>cpe:/o:apple:apple_tv:5</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.4.8 - 10.4.11 (Tiger) (Darwin 8.8.0 - 8.11.0)" accuracy="90" line="5491">
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.4.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.4</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPad tablet computer (iOS 4.3.2)" accuracy="90" line="3663">
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4.3.2</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPad tablet computer or iPhone mobile phone (iOS 4.0 - 4.1)" accuracy="90" line="3800">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iPhone mobile phone (iOS 4.3.2)" accuracy="90" line="3836">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4.3.2</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.5 (Leopard) - 10.6.8 (Snow Leopard) or iOS 4.0 - 4.2.1 (Darwin 9.0.0b5 - 10.8.0)" accuracy="90" line="3895">
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.6.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.6</cpe></osclass>
+</osmatch>
+<osmatch name="Apple iOS 5.0.1" accuracy="90" line="3937">
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="5.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:5.0.1</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="5.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:5.0.1</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.7.0 (Lion) - 10.12 (Sierra) or iOS 4.1 - 9.3.3 (Darwin 10.0.0 - 16.4.0)" accuracy="90" line="6488">
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.7.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.7</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="OS X" osgen="10.8.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.8</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="OS X" osgen="10.9.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.9</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="OS X" osgen="10.10.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.10</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="OS X" osgen="10.11.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.11</cpe></osclass>
+<osclass type="general purpose" vendor="Apple" osfamily="macOS" osgen="10.12.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.12</cpe></osclass>
+<osclass type="media device" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4</cpe><cpe>cpe:/a:apple:apple_tv:4</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="4.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:4</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="5.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:5</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="6.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:6</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="7.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:7</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="8.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:8</cpe></osclass>
+<osclass type="phone" vendor="Apple" osfamily="iOS" osgen="9.X" accuracy="90"><cpe>cpe:/o:apple:iphone_os:9</cpe></osclass>
+</osmatch>
+<osmatch name="Apple Mac OS X 10.7.4 - 10.7.5 (Lion) (Darwin 11.4.2)" accuracy="90" line="6887">
+<osclass type="general purpose" vendor="Apple" osfamily="Mac OS X" osgen="10.7.X" accuracy="90"><cpe>cpe:/o:apple:mac_os_x:10.7</cpe></osclass>
+</osmatch>
+<osfingerprint fingerprint="OS:SCAN(V=7.80%E=4%D=11/25%OT=88%CT=1%CU=40581%PV=Y%DS=1%DC=D%G=Y%M=A4FC14%&#xa;OS:TM=6B070058%P=i686-pc-windows-windows)SEQ(SP=104%GCD=1%ISR=10C%TI=Z%CI=R&#xa;OS:D%II=RI%TS=21)SEQ(CI=RD%II=RI%TS=1F)OPS(O1=M5B4NW6NNT11SLL%O2=M5B4NW6NNT&#xa;OS:11SLL%O3=M5B4NW6NNT11%O4=M5B4NW6NNT11SLL%O5=M5B4NW6NNT11SLL%O6=M5B4NNT11&#xa;OS:SLL)WIN(W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=4&#xa;OS:0%W=FFFF%O=M5B4NW6SLL%CC=N%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(&#xa;OS:R=N)T3(R=N)T4(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=N%T=40%&#xa;OS:W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=&#xa;OS:)T7(R=Y%DF=N%T=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=38%UN&#xa;OS:=0%RIPL=G%RID=G%RIPCK=G%RUCK=0%RUD=G)IE(R=Y%DFI=S%T=40%CD=S)&#xa;"/>
+</os>
+<uptime seconds="35" lastboot="Wed Nov 25 16:35:17 2026"/>
+<distance value="1"/>
+<tcpsequence index="260" difficulty="Good luck!" values="CC27886E,580C700B,A81C9421,85220823"/>
+<ipidsequence class="All zeros" values="0,0,0,0"/>
+<tcptssequence class="other" values="6B7B2163,ABD8EAE3,4BCD0AB,DFAD15B4"/>
+<times srtt="10876" rttvar="11759" to="100000"/>
+</host>
+<host starttime="1795620385" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.19" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:09" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="998">
+<extrareasons reason="resets" count="998"/>
+</extraports>
+<port protocol="tcp" portid="49152"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+<port protocol="tcp" portid="62078"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="62078"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<osmatch name="Fortinet FortiGate 100D firewall" accuracy="87" line="25595">
+<osclass type="firewall" vendor="Fortinet" osfamily="embedded" accuracy="87"><cpe>cpe:/h:fortinet:fortigate_100d</cpe></osclass>
+</osmatch>
+</os>
+<distance value="1"/>
+<times srtt="182252" rttvar="211348" to="1027644"/>
+</host>
+<host starttime="1795620393" endtime="1795620951"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.22" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:0A" addrtype="mac"/>
+<hostnames>
+<hostname name="blocked.local" type="PTR"/>
+</hostnames>
+<ports><extraports state="filtered" count="997">
+<extrareasons reason="no-responses" count="997"/>
+</extraports>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="445"/>
+<osmatch name="iPXE 1.0.0+" accuracy="100" line="40429">
+<osclass type="specialized" vendor="iPXE" osfamily="iPXE" osgen="1.X" accuracy="100"><cpe>cpe:/o:ipxe:ipxe:1.0.0%2b</cpe></osclass>
+</osmatch>
+<osmatch name="Tomato 1.28 (Linux 2.4.20)" accuracy="100" line="46662">
+<osclass type="WAP" vendor="Linux" osfamily="Linux" osgen="2.4.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.4.20</cpe></osclass>
+</osmatch>
+<osmatch name="Tomato firmware (Linux 2.6.22)" accuracy="100" line="61430">
+<osclass type="WAP" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6.22</cpe></osclass>
+</osmatch>
+<osmatch name="Sony Ericsson U8i Vivaz mobile phone" accuracy="100" line="98544">
+<osclass type="phone" vendor="Sony Ericsson" osfamily="embedded" accuracy="100"><cpe>cpe:/h:sonyericsson:u8i_vivaz</cpe></osclass>
+</osmatch>
+</os>
+<distance value="1"/>
+<times srtt="7880" rttvar="513" to="100000"/>
+</host>
+<host starttime="1795620391" endtime="1795620952"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="192.168.0.250" addrtype="ipv4"/>
+<address addr="02:00:00:00:00:0B" addrtype="mac" vendor="Magic Control Technology"/>
+<hostnames>
+<hostname name="pi.hole" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="987">
+<extrareasons reason="resets" count="987"/>
+</extraports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="Dropbear sshd" version="2025.89" extrainfo="protocol 2.0" ostype="Linux" method="probed" conf="10"><cpe>cpe:/a:matt_johnston:dropbear_ssh_server:2025.89</cpe><cpe>cpe:/o:linux:linux_kernel</cpe></service></port>
+<port protocol="tcp" portid="53"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="domain" extrainfo="generic dns response: NOTIMP" servicefp="SF-Port53-TCP:V=7.80%I=7%D=11/25%Time=6B06FFAB%P=i686-pc-windows-windows%r(DNSVersionBindReqTCP,20,&quot;\0\x1e\0\x06\x81\x80\0\x01\0\0\0\0\0\0\x07version\x04bind\0\0\x10\0\x03&quot;)%r(DNSStatusRequestTCP,E,&quot;\0\x0c\0\0\x90\x84\0\0\0\0\0\0\0\0&quot;);" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="netbios-ssn" product="Samba smbd" version="4.6.2" method="probed" conf="10"><cpe>cpe:/a:samba:samba:4.6.2</cpe></service></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="netbios-ssn" product="Samba smbd" version="4.6.2" method="probed" conf="10"><cpe>cpe:/a:samba:samba:4.6.2</cpe></service></port>
+<port protocol="tcp" portid="3030"><state state="open" reason="syn-ack" reason_ttl="63"/><service name="http" product="nginx" version="1.30.4" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx:1.30.4</cpe></service></port>
+<port protocol="tcp" portid="6881"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="tcpwrapped" method="probed" conf="8"/></port>
+<port protocol="tcp" portid="8080"><state state="open" reason="syn-ack" reason_ttl="63"/><service name="http" product="Golang net/http server" extrainfo="Go-IPFS json-rpc or InfluxDB API" method="probed" conf="10"><cpe>cpe:/a:protocol_labs:go-ipfs</cpe></service></port>
+<port protocol="tcp" portid="8081"><state state="open" reason="syn-ack" reason_ttl="63"/><service name="http" product="nginx" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx</cpe></service></port>
+<port protocol="tcp" portid="8084"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="unknown" servicefp="SF-Port8084-TCP:V=7.80%I=7%D=11/25%Time=6B06FFAA%P=i686-pc-windows-windows%r(GetRequest,1000,&quot;HTTP/1\.0\x20200\x20OK\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nX-Xss-Protection:\x201;\x20mode=block\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:59\x20GMT\r\n\r\n&lt;!doctype\x20html&gt;\n&lt;html\x20lang=\&quot;en\&quot;&gt;\n\x20\x20&lt;head&gt;\n\x20\x20\x20\x20&lt;meta\x20charset=\&quot;utf-8\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;meta\x20http-equiv=\&quot;X-UA-Compatible\&quot;\x20content=\&quot;IE=edge\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;meta\n\x20\x20\x20\x20\x20\x20name=\&quot;viewport\&quot;\n\x20\x20\x20\x20\x20\x20content=\&quot;width=device-width,\x20initial-scale=1,\x20user-scalable=no\&quot;\n\x20\x20\x20\x20/&gt;\n\n\x20\x20\x20\x20\n\n\x20\x20\x20\x20&lt;title&gt;\n\x20\x20\x20\x20\x20\x20File\x20Browser\n\x20\x20\x20\x20&lt;/title&gt;\n\n\x20\x20\x20\x20&lt;meta\x20name=\&quot;robots\&quot;\x20content=\&quot;noindex,nofollow\&quot;\x20/&gt;\n\n\x20\x20\x20\x20&lt;link\n\x20\x20\x20\x20\x20\x20rel=\&quot;icon\&quot;\n\x20\x20\x20\x20\x20\x20type=\&quot;image/svg\+xml\&quot;\n\x20\x20\x20\x20\x20\x20href=\&quot;/static/img/icons/favicon\.svg\&quot;\n\x20\x20\x20\x20/&gt;\n\x20\x20\x20\x20&lt;link\x20rel=\&quot;shortcut\x20icon\&quot;\x20href=\&quot;/static/img/icons/favicon\.ico\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;link\n\x20\x20\x20\x20\x20\x20rel=\&quot;apple-touch-icon\&quot;\n\x20\x20\x20\x20\x20\x20sizes=\&quot;180x180\&quot;\n\x20\x20\x20\x20\x20\x20href=\&quot;/static/img/icons/apple-touch-icon\.png\&quot;\n\x20\x20\x20\x20/&gt;\n\x20\x20\x20\x20&lt;meta\x20name=\&quot;apple-mobile-web-app-title\&quot;\x20content=\&quot;File\x20Browser\&quot;\x20/&gt;\n\n\x20\x20\x20\x20&lt;!-&quot;)%r(FourOhFourRequest,1000,&quot;HTTP/1\.0\x20200\x20OK\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nX-Xss-Protection:\x201;\x20mode=block\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:59\x20GMT\r\n\r\n&lt;!doctype\x20html&gt;\n&lt;html\x20lang=\&quot;en\&quot;&gt;\n\x20\x20&lt;head&gt;\n\x20\x20\x20\x20&lt;meta\x20charset=\&quot;utf-8\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;meta\x20http-equiv=\&quot;X-UA-Compatible\&quot;\x20content=\&quot;IE=edge\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;meta\n\x20\x20\x20\x20\x20\x20name=\&quot;viewport\&quot;\n\x20\x20\x20\x20\x20\x20content=\&quot;width=device-width,\x20initial-scale=1,\x20user-scalable=no\&quot;\n\x20\x20\x20\x20/&gt;\n\n\x20\x20\x20\x20\n\n\x20\x20\x20\x20&lt;title&gt;\n\x20\x20\x20\x20\x20\x20File\x20Browser\n\x20\x20\x20\x20&lt;/title&gt;\n\n\x20\x20\x20\x20&lt;meta\x20name=\&quot;robots\&quot;\x20content=\&quot;noindex,nofollow\&quot;\x20/&gt;\n\n\x20\x20\x20\x20&lt;link\n\x20\x20\x20\x20\x20\x20rel=\&quot;icon\&quot;\n\x20\x20\x20\x20\x20\x20type=\&quot;image/svg\+xml\&quot;\n\x20\x20\x20\x20\x20\x20href=\&quot;/static/img/icons/favicon\.svg\&quot;\n\x20\x20\x20\x20/&gt;\n\x20\x20\x20\x20&lt;link\x20rel=\&quot;shortcut\x20icon\&quot;\x20href=\&quot;/static/img/icons/favicon\.ico\&quot;\x20/&gt;\n\x20\x20\x20\x20&lt;link\n\x20\x20\x20\x20\x20\x20rel=\&quot;apple-touch-icon\&quot;\n\x20\x20\x20\x20\x20\x20sizes=\&quot;180x180\&quot;\n\x20\x20\x20\x20\x20\x20href=\&quot;/static/img/icons/apple-touch-icon\.png\&quot;\n\x20\x20\x20\x20/&gt;\n\x20\x20\x20\x20&lt;meta\x20name=\&quot;apple-mobile-web-app-title\&quot;\x20content=\&quot;File\x20Browser\&quot;\x20/&gt;\n\n\x20\x20\x20\x20&lt;!-&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8089"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="webdav" servicefp="SF-Port8089-TCP:V=7.80%I=7%D=11/25%Time=6B06FFAA%P=i686-pc-windows-windows%r(GenericLines,249,&quot;HTTP/1\.0\x20400\x20Bad\x20Request\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate,\x20private,\x20max-age=0\r\nExpires:\x200\r\nPragma:\x20no-cache\r\nX-DNS-Prefetch-Control:\x20off\r\nContent-Security-Policy:\x20default-src\x20&apos;self&apos;;\x20style-src\x20&apos;self&apos;\x20&apos;unsafe-inline&apos;;\x20img-src\x20&apos;self&apos;\x20data:;\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x200\r\nX-Content-Type-Options:\x20nosniff\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nAccess-Control-Allow-Headers:\x20\*\r\nAccess-Control-Allow-Methods:\x20\*\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:59\x20GMT\r\nConnection:\x20close\r\n\r\nError\x20400:\x20Bad\x20Request\nBad\x20request&quot;)%r(GetRequest,12AE,&quot;HTTP/1\.0\x20403\x20Forbidden\r\nCache-Control:\x20no-cache,\x20no-store,\x20must-revalidate,\x20private,\x20max-age=0\r\nExpires:\x200\r\nPragma:\x20no-cache\r\nX-DNS-Prefetch-Control:\x20off\r\nContent-Security-Policy:\x20default-src\x20&apos;self&apos;;\x20style-src\x20&apos;self&apos;\x20&apos;unsafe-inline&apos;;\x20img-src\x20&apos;self&apos;\x20data:;\r\nX-Frame-Options:\x20DENY\r\nX-XSS-Protection:\x200\r\nX-Content-Type-Options:\x20nosniff\r\nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:32:59\x20GMT\r\nConnection:\x20close\r\n\r\n&lt;!doctype\x20html&gt;\n&lt;!-&#45;\n\*\x20\x20Pi-hole:\x20A\x20black\x20hole\x20for\x20Internet\x20advertisements\n\*\x20\x20\(c\)\x202017\x20Pi-hole,\x20LLC\x20\(https://pi-hole\.net\)\n\*\x20\x20Network-wide\x20ad\x20blocking\x20via\x20your\x20own\x20hardware\.\n\*\n\*\x20\x20This\x20file\x20is\x20copyright\x20under\x20the\x20latest\x20version\x20of\x20the\x20EUPL\.\n\*\x20\x20Please\x20see\x20LICENSE\x20file\x20for\x20your\x20rights\x20under\x20this\x20license\.\n-&#45;&gt;\n&lt;html\x20lang=\&quot;en\&quot;&gt;\n&lt;head&gt;\n\x20\x20\x20\x20&lt;meta\x20charset=\&quot;utf-8\&quot;&gt;\n\x20\x20\x20\x20&lt;meta\x20name=\&quot;viewport\&quot;\x20content=\&quot;width=device-width,\x20initial&quot;);" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8888"><state state="open" reason="syn-ack" reason_ttl="63"/><service name="sun-answerbook" servicefp="SF-Port8888-TCP:V=7.80%I=7%D=11/25%Time=6B06FFAA%P=i686-pc-windows-windows%r(GetRequest,2046,&quot;HTTP/1\.0\x20200\x20OK\r\ncontent-type:\x20text/html;\x20charset=utf-8\r\ncontent-length:\x207951\r\nserver-timing:\x20total;dur=34\.927,\x20render;dur=12\.956\r\nx-content-type-options:\x20nosniff\r\nx-download-options:\x20noopen\r\nx-robots-tag:\x20noindex,\x20nofollow\r\nreferrer-policy:\x20no-referrer\r\nserver:\x20granian\r\ndate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:00\x20GMT\r\n\r\n&lt;!DOCTYPE\x20html&gt;\n&lt;html\x20class=\&quot;no-js\x20theme-auto\x20center-alignment-no\&quot;\x20lang=\&quot;en-EN\&quot;\x20&gt;\n&lt;head&gt;\n\x20\x20&lt;meta\x20charset=\&quot;UTF-8\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;endpoint\&quot;\x20content=\&quot;index\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;description\&quot;\x20content=\&quot;SearXNG\x20\xe2\x80\x94\x20a\x20privacy-respecting,\x20open\x20metasearch\x20engine\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;keywords\&quot;\x20content=\&quot;SearXNG,\x20search,\x20search\x20engine,\x20metasearch,\x20meta\x20search\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;generator\&quot;\x20content=\&quot;searxng/2026\.11\.23\+a7163d091\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;referrer\&quot;\x20content=\&quot;no-referrer\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;robots\&quot;\x20content=\&quot;noarchive\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;viewport\&quot;\x20content=\&quot;width=device-width,\x20initial-scale=1\&quot;&gt;\n\x20\x20&lt;title&gt;SearXNG&lt;/titl&quot;)%r(HTTPOptions,150,&quot;HTTP/1\.0\x20200\x20OK\r\ncontent-type:\x20text/html;\x20charset=utf-8\r\nallow:\x20OPTIONS,\x20POST,\x20HEAD,\x20GET\r\nserver-timing:\x20total;dur=12\.872,\x20render;dur=0\r\nx-content-type-options:\x20nosniff\r\nx-download-options:\x20noopen\r\nx-robots-tag:\x20noindex,\x20nofollow\r\nreferrer-policy:\x20no-referrer\r\ncontent-length:\x200\r\nserver:\x20granian\r\ndate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:00\x20GMT\r\n\r\n&quot;)%r(FourOhFourRequest,1A47,&quot;HTTP/1\.0\x20404\x20Not\x20Found\r\ncontent-type:\x20text/html;\x20charset=utf-8\r\ncontent-length:\x206410\r\nserver-timing:\x20total;dur=32\.936,\x20render;dur=9\.615\r\nx-content-type-options:\x20nosniff\r\nx-download-options:\x20noopen\r\nx-robots-tag:\x20noindex,\x20nofollow\r\nreferrer-policy:\x20no-referrer\r\nserver:\x20granian\r\ndate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:00\x20GMT\r\n\r\n&lt;!DOCTYPE\x20html&gt;\n&lt;html\x20class=\&quot;no-js\x20theme-auto\x20center-alignment-no\&quot;\x20lang=\&quot;en-EN\&quot;\x20&gt;\n&lt;head&gt;\n\x20\x20&lt;meta\x20charset=\&quot;UTF-8\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;endpoint\&quot;\x20content=\&quot;None\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;description\&quot;\x20content=\&quot;SearXNG\x20\xe2\x80\x94\x20a\x20privacy-respecting,\x20open\x20metasearch\x20engine\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;keywords\&quot;\x20content=\&quot;SearXNG,\x20search,\x20search\x20engine,\x20metasearch,\x20meta\x20search\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;generator\&quot;\x20content=\&quot;searxng/2026\.11\.23\+a7163d091\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;referrer\&quot;\x20content=\&quot;no-referrer\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;robots\&quot;\x20content=\&quot;noarchive\&quot;&gt;\n\x20\x20&lt;meta\x20name=\&quot;viewport\&quot;\x20content=\&quot;width=device-width,\x20initial-scale=1\&quot;&gt;\n\x20\x20&lt;title&gt;SearXNG&lt;&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="9002"><state state="open" reason="syn-ack" reason_ttl="63"/><service name="dynamid" servicefp="SF-Port9002-TCP:V=7.80%I=7%D=11/25%Time=6B06FFAB%P=i686-pc-windows-windows%r(GenericLines,67,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\x20Request&quot;)%r(GetRequest,2C84,&quot;HTTP/1\.0\x20200\x20OK\r\nAccept-Ranges:\x20bytes\r\nCache-Control:\x20max-age=31536000\r\nContent-Length:\x2022734\r\nContent-Security-Policy:\x20script-src\x20&apos;self&apos;\x20cdn\.matomo\.cloud\x20js\.hsforms\.net\x20https://www\.google\.com/recaptcha/,\x20https://www\.gstatic\.com/recaptcha/;\x20object-src\x20&apos;none&apos;;\x20frame-ancestors\x20&apos;none&apos;;\x20frame-src\x20https://www\.google\.com/recaptcha/\x20https://www\.gstatic\.com/recaptcha/\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nLast-Modified:\x20Wed,\x2017\x20Dec\x202025\x2001:43:44\x20GMT\r\nPermissions-Policy:\x20accelerometer=\(\),ambient-light-sensor=\(\),attribution-reporting=\(\),autoplay=\(\),battery=\(\),browsing-topics=\(\),camera=\(\),captured-surface-control=\(\),ch-device-memory=\(\),ch-downlink=\(\),ch-dpr=\(\),ch-ect=\(\),ch-prefers-color-scheme=\(\),ch-prefers-reduced-motion=\(\),ch-prefers-reduced-transparency=\(\),ch-rtt=\(\),ch-save-data=\(\),ch-ua=\(\),ch-ua-arch=\(\),ch-ua-bitness=\(\),ch-ua-form-factors=\(\),ch-ua-full-version=\(\),ch-ua-full-version-list=\(\),c&quot;)%r(HTTPOptions,2C84,&quot;HTTP/1\.0\x20200\x20OK\r\nAccept-Ranges:\x20bytes\r\nCache-Control:\x20max-age=31536000\r\nContent-Length:\x2022734\r\nContent-Security-Policy:\x20script-src\x20&apos;self&apos;\x20cdn\.matomo\.cloud\x20js\.hsforms\.net\x20https://www\.google\.com/recaptcha/,\x20https://www\.gstatic\.com/recaptcha/;\x20object-src\x20&apos;none&apos;;\x20frame-ancestors\x20&apos;none&apos;;\x20frame-src\x20https://www\.google\.com/recaptcha/\x20https://www\.gstatic\.com/recaptcha/\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nLast-Modified:\x20Wed,\x2017\x20Dec\x202025\x2001:43:44\x20GMT\r\nPermissions-Policy:\x20accelerometer=\(\),ambient-light-sensor=\(\),attribution-reporting=\(\),autoplay=\(\),battery=\(\),browsing-topics=\(\),camera=\(\),captured-surface-control=\(\),ch-device-memory=\(\),ch-downlink=\(\),ch-dpr=\(\),ch-ect=\(\),ch-prefers-color-scheme=\(\),ch-prefers-reduced-motion=\(\),ch-prefers-reduced-transparency=\(\),ch-rtt=\(\),ch-save-data=\(\),ch-ua=\(\),ch-ua-arch=\(\),ch-ua-bitness=\(\),ch-ua-form-factors=\(\),ch-ua-full-version=\(\),ch-ua-full-version-list=\(\),c&quot;);" method="table" conf="3"/></port>
+<port protocol="tcp" portid="9091"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="xmltec-xmlmail" servicefp="SF-Port9091-TCP:V=7.80%I=7%D=11/25%Time=6B06FFB8%P=i686-pc-windows-windows%r(GenericLines,DF,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/html\r\nConnection:\x20close\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:13\x20GMT\r\nContent-Length:\x2094\r\n\r\n&lt;HTML&gt;&lt;HEAD&gt;\n&lt;TITLE&gt;400\x20Bad\x20Request&lt;/TITLE&gt;\n&lt;/HEAD&gt;&lt;BODY&gt;\n&lt;H1&gt;Bad\x20Request&lt;/H1&gt;\n&lt;/BODY&gt;&lt;/HTML&gt;\n&quot;)%r(GetRequest,116,&quot;HTTP/1\.0\x20401\x20Unauthorized\r\nServer:\x20Transmission\r\nX-Frame-Options:\x20SAMEORIGIN\r\nContent-Security-Policy:\x20frame-ancestors\x20&apos;self&apos;\r\nAccess-Control-Allow-Origin:\x20\*\r\nWWW-Authenticate:\x20Basic\x20realm=\&quot;Transmission\&quot;\r\nContent-Type:\x20text/html;\x20charset=ISO-8859-1\r\n\r\n&lt;h1&gt;401:\x20Unauthorized&lt;/h1&gt;&quot;)%r(HTTPOptions,106,&quot;HTTP/1\.0\x20200\x20OK\r\nServer:\x20Transmission\r\nX-Frame-Options:\x20SAMEORIGIN\r\nContent-Security-Policy:\x20frame-ancestors\x20&apos;self&apos;\r\nAccess-Control-Allow-Origin:\x20\*\r\nAccess-Control-Allow-Methods:\x20GET,\x20POST,\x20OPTIONS\r\nContent-Type:\x20text/html;\x20charset=ISO-8859-1\r\n\r\n&lt;h1&gt;200:\x20OK&lt;/h1&gt;&quot;)%r(RTSPRequest,DF,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/html\r\nConnection:\x20close\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:13\x20GMT\r\nContent-Length:\x2094\r\n\r\n&lt;HTML&gt;&lt;HEAD&gt;\n&lt;TITLE&gt;400\x20Bad\x20Request&lt;/TITLE&gt;\n&lt;/HEAD&gt;&lt;BODY&gt;\n&lt;H1&gt;Bad\x20Request&lt;/H1&gt;\n&lt;/BODY&gt;&lt;/HTML&gt;\n&quot;)%r(Help,DF,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/html\r\nConnection:\x20close\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:28\x20GMT\r\nContent-Length:\x2094\r\n\r\n&lt;HTML&gt;&lt;HEAD&gt;\n&lt;TITLE&gt;400\x20Bad\x20Request&lt;/TITLE&gt;\n&lt;/HEAD&gt;&lt;BODY&gt;\n&lt;H1&gt;Bad\x20Request&lt;/H1&gt;\n&lt;/BODY&gt;&lt;/HTML&gt;\n&quot;)%r(SSLSessionReq,DF,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/html\r\nConnection:\x20close\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:28\x20GMT\r\nContent-Length:\x2094\r\n\r\n&lt;HTML&gt;&lt;HEAD&gt;\n&lt;TITLE&gt;400\x20Bad\x20Request&lt;/TITLE&gt;\n&lt;/HEAD&gt;&lt;BODY&gt;\n&lt;H1&gt;Bad\x20Request&lt;/H1&gt;\n&lt;/BODY&gt;&lt;/HTML&gt;\n&quot;)%r(TerminalServerCookie,DF,&quot;HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/html\r\nConnection:\x20close\r\nDate:\x20Wed,\x2025\x20Nov\x202026\x2015:33:28\x20GMT\r\nContent-Length:\x2094\r\n\r\n&lt;HTML&gt;&lt;HEAD&gt;\n&lt;TITLE&gt;400\x20Bad\x20Request&lt;/TITLE&gt;\n&lt;/HEAD&gt;&lt;BODY&gt;\n&lt;H1&gt;Bad\x20Request&lt;/H1&gt;\n&lt;/BODY&gt;&lt;/HTML&gt;\n&quot;);" method="table" conf="3"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="22"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="34908"/>
+<osmatch name="Linux 4.10" accuracy="95" line="66948">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="4.X" accuracy="95"><cpe>cpe:/o:linux:linux_kernel:4.10</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 3.1" accuracy="95" line="62708">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="95"><cpe>cpe:/o:linux:linux_kernel:3.1</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 3.2" accuracy="95" line="64455">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="95"><cpe>cpe:/o:linux:linux_kernel:3.2</cpe></osclass>
+</osmatch>
+<osmatch name="AXIS 210A or 211 Network Camera (Linux 2.6.17)" accuracy="94" line="61606">
+<osclass type="webcam" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="94"><cpe>cpe:/o:linux:linux_kernel:2.6.17</cpe></osclass>
+<osclass type="webcam" vendor="AXIS" osfamily="embedded" accuracy="94"><cpe>cpe:/h:axis:210a_network_camera</cpe><cpe>cpe:/h:axis:211_network_camera</cpe></osclass>
+</osmatch>
+<osmatch name="Android 5.0 - 6.0.1 (Linux 3.4)" accuracy="93" line="31122">
+<osclass type="phone" vendor="Google" osfamily="Android" osgen="5.X" accuracy="93"><cpe>cpe:/o:google:android:5</cpe></osclass>
+<osclass type="phone" vendor="Google" osfamily="Android" osgen="6.X" accuracy="93"><cpe>cpe:/o:google:android:6</cpe></osclass>
+<osclass type="phone" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:3.4</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 2.6.32" accuracy="93" line="55173">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:2.6.32</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 3.2 - 4.9" accuracy="93" line="65105">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:3</cpe></osclass>
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="4.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:4</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 2.6.32 - 3.10" accuracy="93" line="56381">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:2.6</cpe></osclass>
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:3</cpe></osclass>
+</osmatch>
+<osmatch name="ASUS RT-N56U WAP (Linux 3.4)" accuracy="93" line="8344">
+<osclass type="WAP" vendor="Asus" osfamily="embedded" accuracy="93"><cpe>cpe:/h:asus:rt-n56u</cpe></osclass>
+<osclass type="WAP" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:3.4</cpe></osclass>
+</osmatch>
+<osmatch name="Linux 3.16" accuracy="93" line="63962">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="3.X" accuracy="93"><cpe>cpe:/o:linux:linux_kernel:3.16</cpe></osclass>
+</osmatch>
+<osfingerprint fingerprint="OS:SCAN(V=7.80%E=4%D=11/25%OT=22%CT=1%CU=34908%PV=Y%DS=1%DC=D%G=Y%M=00051B%&#xa;OS:TM=6B070058%P=i686-pc-windows-windows)SEQ(SP=100%GCD=1%ISR=106%TI=Z%CI=Z&#xa;OS:%II=I%TS=21)SEQ(CI=Z%II=I)OPS(O1=M5B4ST11NW7%O2=M5B4ST11NW7%O3=M5B4NNT11&#xa;OS:NW7%O4=M5B4ST11NW7%O5=M5B4ST11NW7%O6=M5B4ST11)WIN(W1=FE88%W2=FE88%W3=FE8&#xa;OS:8%W4=FE88%W5=FE88%W6=FE88)ECN(R=Y%DF=Y%T=40%W=FAF0%O=M5B4NNSNW7%CC=Y%Q=)&#xa;OS:T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R=N)T4(R=Y%DF=Y%T=40%W=&#xa;OS:0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T&#xa;OS:6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=40%W=0%S=Z%A=S+&#xa;OS:%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK&#xa;OS:=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)&#xa;"/>
+</os>
+<distance value="1"/>
+<times srtt="3654" rttvar="4497" to="100000"/>
+</host>
+<host starttime="1795620952" endtime="1795620984"><status state="up" reason="localhost-response" reason_ttl="0"/>
+<address addr="192.168.0.14" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="994">
+<extrareasons reason="resets" count="994"/>
+</extraports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="ssh" product="OpenSSH" version="for_Windows_9.5" extrainfo="protocol 2.0" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:for_windows_9.5</cpe></service></port>
+<port protocol="tcp" portid="135"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="msrpc" product="Microsoft Windows RPC" ostype="Windows" method="probed" conf="10"><cpe>cpe:/o:microsoft:windows</cpe></service></port>
+<port protocol="tcp" portid="139"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="netbios-ssn" product="Microsoft Windows netbios-ssn" ostype="Windows" method="probed" conf="10"><cpe>cpe:/o:microsoft:windows</cpe></service></port>
+<port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" method="table" conf="3"/></port>
+<port protocol="tcp" portid="2179"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="vmrdp" method="table" conf="3"/></port>
+<port protocol="tcp" portid="5357"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="http" product="Microsoft HTTPAPI httpd" version="2.0" extrainfo="SSDP/UPnP" ostype="Windows" method="probed" conf="10"><cpe>cpe:/o:microsoft:windows</cpe></service></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="22"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="33158"/>
+<osmatch name="Microsoft Windows 10 1607" accuracy="99" line="69340">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="10" accuracy="99"><cpe>cpe:/o:microsoft:windows_10:1607</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 10 1511" accuracy="96" line="69105">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="10" accuracy="96"><cpe>cpe:/o:microsoft:windows_10:1511</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 10 1703" accuracy="96" line="69412">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="10" accuracy="96"><cpe>cpe:/o:microsoft:windows_10:1703</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 7 or 8.1 R1" accuracy="93" line="76444">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="7" accuracy="93"><cpe>cpe:/o:microsoft:windows_7</cpe></osclass>
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="8.1" accuracy="93"><cpe>cpe:/o:microsoft:windows_8.1:r1</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows Server 2008 R2" accuracy="92" line="74406">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2008" accuracy="92"><cpe>cpe:/o:microsoft:windows_server_2008:r2</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows Server 2008 SP2" accuracy="92" line="74867">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="2008" accuracy="92"><cpe>cpe:/o:microsoft:windows_server_2008::sp2</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 7 SP1" accuracy="92" line="77079">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="7" accuracy="92"><cpe>cpe:/o:microsoft:windows_7::sp1</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 8.1 Update 1" accuracy="92" line="77563">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="8" accuracy="92"><cpe>cpe:/o:microsoft:windows_8</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 8" accuracy="92" line="77491">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="8" accuracy="92"><cpe>cpe:/o:microsoft:windows_8</cpe></osclass>
+</osmatch>
+<osmatch name="Microsoft Windows 10" accuracy="92" line="68914">
+<osclass type="general purpose" vendor="Microsoft" osfamily="Windows" osgen="10" accuracy="92"><cpe>cpe:/o:microsoft:windows_10</cpe></osclass>
+</osmatch>
+<osfingerprint fingerprint="OS:SCAN(V=7.80%E=4%D=11/25%OT=22%CT=1%CU=33158%PV=Y%DS=0%DC=L%G=Y%TM=6B0700&#xa;OS:78%P=i686-pc-windows-windows)SEQ(SP=103%GCD=1%ISR=10A%TI=I%CI=I%II=I%SS=&#xa;OS:S%TS=A)OPS(O1=MFFD7NW8ST11%O2=MFFD7NW8ST11%O3=MFFD7NW8NNT11%O4=MFFD7NW8S&#xa;OS:T11%O5=MFFD7NW8ST11%O6=MFFD7ST11)WIN(W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=&#xa;OS:FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=80%W=FFFF%O=MFFD7NW8NNS%CC=N%Q=)T1(R=Y%DF=Y%&#xa;OS:T=80%S=O%A=S+%F=AS%RD=0%Q=)T2(R=Y%DF=Y%T=80%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)&#xa;OS:T3(R=Y%DF=Y%T=80%W=0%S=Z%A=O%F=AR%O=%RD=0%Q=)T4(R=Y%DF=Y%T=80%W=0%S=A%A=&#xa;OS:O%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF&#xa;OS:=Y%T=80%W=0%S=A%A=O%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR%O=&#xa;OS:%RD=0%Q=)U1(R=Y%DF=N%T=80%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUD=G&#xa;OS:)U1(R=N)IE(R=Y%DFI=N%T=80%CD=Z)&#xa;"/>
+</os>
+<uptime seconds="29891" lastboot="Wed Nov 25 08:18:13 2026"/>
+<distance value="0"/>
+<tcpsequence index="259" difficulty="Good luck!" values="BE6D2A7C,273A40EA,8AC6FCE9,68A84C4B,A5D65F50,C5E91C85"/>
+<ipidsequence class="Incremental" values="690,692,694,696,698,69A"/>
+<tcptssequence class="1000HZ" values="1C8159A,1C81607,1C81672,1C816DD,1C81749,1C817B5"/>
+<times srtt="0" rttvar="0" to="100000"/>
+</host>
+<runstats><finished time="1795620984" timestr="Wed Nov 25 16:36:24 2026" elapsed="599.73" summary="Nmap done at Wed Nov 25 16:36:24 2026; 256 IP addresses (12 hosts up) scanned in 599.73 seconds" exit="success"/><hosts up="12" down="244" total="256"/>
+</runstats>
+</nmaprun>
