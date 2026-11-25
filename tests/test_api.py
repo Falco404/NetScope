@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from netscope.api import NetScopeAPI, build_app
 from netscope.scanner.engine import NmapScanner
+from netscope.scanner.models import HostResult, PortResult, ScanResult
 from netscope.scanner.parser import parse_nmap_xml
 from netscope.store import SQLiteStore
 
@@ -360,3 +361,48 @@ def test_build_app_default_denies_foreign_host(tmp_path):
     assert client.get("/api/scans", headers={"Host": "localhost"}).status_code == 200
     assert client.get("/api/scans", headers={"Host": "evil.example.com"}).status_code == 400
     store.close()
+
+
+def _sinkhole_scan(ips: tuple[str, ...]) -> ScanResult:
+    """Every host carries the same PTR name — nmap's reverse-DNS sinkhole
+    (`blocked.local` on Falco's LAN) that made device rows and diff lines
+    indistinguishable."""
+    return ScanResult(
+        target="192.168.0.0/24",
+        hosts=tuple(
+            HostResult(
+                ip=ip,
+                up=True,
+                hostname="blocked.local",
+                ports=(PortResult(port=80, protocol="tcp", state="open"),),
+            )
+            for ip in ips
+        ),
+    )
+
+
+def test_devices_endpoint_disambiguates_shared_hostname(tmp_path):
+    client, api, store = make_client(tmp_path)
+    store.save_scan(
+        _sinkhole_scan(("192.168.0.5", "192.168.0.6")), {}, ts="2026-11-25T09:00:00+00:00"
+    )
+    rows = client.get("/api/devices").json()
+    names = [d["name"] for d in rows]
+    assert len(names) == 2
+    assert "blocked.local" not in names, f"ambiguous hostname leaked as a label: {names}"
+    assert len(set(names)) == 2, f"device names must be distinct: {names}"
+
+
+def test_diff_lines_are_unambiguous_with_shared_hostname(tmp_path):
+    client, api, store = make_client(tmp_path)
+    store.save_scan(_sinkhole_scan(("192.168.0.4",)), {}, ts="2026-11-25T09:00:00+00:00")
+    store.save_scan(
+        _sinkhole_scan(("192.168.0.4", "192.168.0.5", "192.168.0.6")),
+        {},
+        ts="2026-11-25T09:10:00+00:00",
+    )
+    diff = client.get("/api/diff", params={"from_id": 1, "to_id": 2}).json()
+    names = [x["name"] for x in diff["appeared"]]
+    assert len(names) == 2
+    assert "blocked.local" not in names, f"diff lines must not repeat an ambiguous name: {names}"
+    assert len(set(names)) == 2, f"diff lines must identify distinct hosts: {names}"
