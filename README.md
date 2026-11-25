@@ -84,10 +84,44 @@ on the LAN can open the UI, name the address that device uses in
 address and never arrives as a `Host` header.
 
 Without admin/root, scans work but the **OS column stays empty** (`nmap -O`
-needs raw-socket privileges). On Linux and macOS, run the same command with
-`sudo` to fill it in. On macOS, exposing the UI on the LAN
-(`NETSCOPE_HOST=0.0.0.0`) may trigger a firewall prompt for incoming
-connections — allow it.
+needs raw-socket privileges). On Windows a regular PowerShell is enough —
+Npcap handles it — so there is nothing to do. On **Linux and macOS** you have
+three options, cheapest first:
+
+- **Check whether `-O` works at all.** This is the exact probe NetScope runs
+  before a scan, so its result is the answer:
+
+  ```bash
+  sudo nmap -sV -O 127.0.0.1
+  ```
+
+- **Run NetScope as root without uv.** uv is a per-user install, so
+  `sudo uv …` ends in `sudo: uv: command not found` — and even with the right
+  `PATH`, `uv run` as root leaves root-owned files in `.venv` and then breaks
+  your normal `uv sync`. Run the already-built interpreter instead:
+
+  ```bash
+  sudo NETSCOPE_DB=/tmp/netscope-root.db .venv/bin/python -m netscope
+  ```
+
+  (The `/tmp` database keeps the repo free of a root-owned `netscope.db`;
+  drop that variable to use your normal database.)
+
+- **Give the nmap binary the capability once — Linux only** — then keep
+  running as your normal user:
+
+  ```bash
+  sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v nmap)"
+  getcap "$(command -v nmap)"          # verify
+  uv run python -m netscope            # -O now works without sudo
+  ```
+
+  Undo with `sudo setcap -r "$(command -v nmap)"`. Trade-off: every local user
+  can then use raw sockets through nmap. macOS has no `setcap`; use the second
+  option there.
+
+On macOS, exposing the UI on the LAN (`NETSCOPE_HOST=0.0.0.0`) may trigger a
+firewall prompt for incoming connections — allow it.
 
 ## Using the web UI
 
