@@ -123,8 +123,11 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   the MAC when known (stable across DHCP leases), else the IP, so a device
   never forks into two rows. `merge_scan()` keeps the latest non-empty
   hostname/OS and snapshots ports per scan. Vendor comes from nmap's own
-  OUI data, with a small offline registry as fallback — no runtime network
-  calls. Display priority: manual name → hostname → vendor label → bare IP.
+  OUI data: at startup NetScope reads nmap's `nmap-mac-prefixes` file
+  (`$NMAPDIR`, else the folder holding `nmap.exe`) and falls back to a small
+  built-in registry when nmap is not installed — no runtime network calls.
+  Longest registered prefix wins, so a 28- or 36-bit registration beats a
+  24-bit one. Display priority: manual name → hostname → vendor label → bare IP.
 - **`netscope/store/store.py` — SQLite store.** Tables `scans`, `devices`,
   `device_ports`, `device_names` (schema v2; v1 databases upgrade in place).
   Upserts use COALESCE so empty scan fields never blank known ones.

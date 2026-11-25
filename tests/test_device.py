@@ -50,15 +50,17 @@ def test_shipped_registry_contains_no_lab_only_prefixes():
 
 
 def test_shipped_prefixes_match_the_oui_registrations():
-    """Each shipped prefix must resolve to the company the IEEE OUI registry
-    actually assigns it (checked against uic.io on 2026-11-25). Three of the
-    old entries did not: `00:0C:AC` is Citizen Watch, not Dell; `A4:50:55` is
-    BUSWARE.DE, not Apple; `E0:37:BF` is WNC Corporation, not Microsoft."""
-    assert vendor_from_mac("00:0C:AC:11:22:33") == "Citizen Watch Co., Ltd."
+    """Each shipped prefix must resolve to the company nmap's own `nmap-mac-prefixes`
+    file registers it to (nmap master, sha256 ae8b132b..., checked 2026-11-25). Three
+    of the old entries did not: `00:0C:AC` is Citizen Watch, not Dell; `A4:50:55` is
+    BUSWARE.DE, not Apple; `E0:37:BF` is WNC, not Microsoft. The names here are
+    nmap's strings verbatim, so a device keeps the same name whether the built-in
+    table or nmap's file answered."""
+    assert vendor_from_mac("00:0C:AC:11:22:33") == "Citizen Watch"
     assert vendor_from_mac("A4:50:55:11:22:33") == "BUSWARE.DE"
     assert vendor_from_mac("B8:27:EB:11:22:33") == "Raspberry Pi Foundation"
-    assert vendor_from_mac("DC:A6:32:11:22:33") == "Raspberry Pi Trading Ltd"
-    assert vendor_from_mac("E0:37:BF:11:22:33") == "WNC Corporation"
+    assert vendor_from_mac("DC:A6:32:11:22:33") == "Raspberry Pi Trading"
+    assert vendor_from_mac("E0:37:BF:11:22:33") == "WNC"
 
 
 def test_unverified_prefixes_are_not_shipped():
