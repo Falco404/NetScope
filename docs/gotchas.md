@@ -90,6 +90,13 @@ Written for the next session. Each one cost real debugging time.
 - **A squash-merge can silently drop doc hunks.** PR #46 was stacked on docs PR #45; after Falco merged both, `docs/decisions.md` lost three rows and `docs/STATUS.md` kept the old "next steps" order. Check every merge with `git diff <merged-branch> main` (the branch survives locally after the remote delete) and re-apply missing doc lines in a small docs PR. Same for stacked PRs touching the same doc files — verify both landed.
 - After Falco squash-merges and deletes a branch, `git pull --ff-only` fails while you are still on that branch ("no such ref was fetched") — `git checkout main` first, then `git fetch --prune`.
 
+## gh & git plumbing
+- **`git push` can fail with `remote: Internal Server Error` / `[remote rejected]`.** That is a transient GitHub error, not a repo problem: the local commit is fine, so wait ~45s and push again. Never re-commit "because the push failed".
+- **`gh pr create` / `gh issue comment` often print no URL** — the output is replaced by the `gh event listen` preview hint. Verify the write landed instead: `gh pr list --json number,title,url` and `gh issue view N --json state,comments --jq '{state, last: (.comments[-1].body | .[0:80])}'`.
+- **`pytest -q` prints no summary line** (only the progress dots), so you cannot read the test count for PR evidence from it. Run pytest **without** `-q` when you need `N passed, M deselected in Xs` pasted into a PR body.
+- **`ruff format --check netscope tests` always reports 2 files** (`tests/test_scanner_parser.py`, `tests/test_target_guard.py`) — pre-existing debt on `main`. Check only the files you touched (`ruff format --check <your files>`) and do not sweep the others.
+- **A PR that covers half an issue must not use a closing keyword.** For #37 part 1 the body says "Part of #37" and the issue stays OPEN; link progress with an `gh issue comment` instead.
+
 ## Networking of this agent container
 - The Hermes container is on the **Docker bridge** (`172.18.0.2`, gateway `172.18.0.1`), **not** the home LAN. It cannot scan `192.168.x.x`, and `GET /api/local-subnet` correctly reports `172.18.0.0/24` from inside it — that is not a bug, it is the documented `/24` + "machine's own subnet" caveat.
 - Home LAN facts: subnet `192.168.0.0/24`, router `192.168.0.1`, Atlas (Windows PC) `192.168.0.14`. Atom (DietPi homeserver) and Apollo (Fedora laptop) must appear in scan results.
