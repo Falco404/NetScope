@@ -6,9 +6,9 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is optional. The idea issues left are
-#41 and #43 (#39 quick-vs-deep and #74 per-device deep scan shipped on
-2026-11-25; #40 and #42 were closed as `not_planned` by Falco). 196 tests pass,
-ruff clean.
+#41 (its **mDNS half shipped**, NetBIOS still to come) and #43 (#39
+quick-vs-deep and #74 per-device deep scan shipped on 2026-11-25; #40 and #42
+were closed as `not_planned` by Falco). 214 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -56,26 +56,29 @@ latest one is recorded as acceptance evidence on issue #10.
 - **#34 OS hint — the optional polish, done** (branch `hermes/os-hint`, this PR): `GET /api/os-hint` answers `{"hint": null}` when the inventory is empty or any device has an OS guess, and a one-sentence explanation otherwise (`OS column is empty — OS detection (-O) needs admin on Windows or root on Linux/macOS, and some devices cannot be fingerprinted at all.`). The UI shows it under the **Devices** heading (hidden element, `textContent` only) and refreshes it after every scan; a failing hint never breaks the device table. **Derived, no schema change**: `ScanJob.os_detection_available` is in-process only, so the stored inventory is the source of truth after a reload. 168 tests pass (3 new in `tests/test_api.py`, 3 frontend guards in `tests/test_frontend_os_hint.py`, all 6 proven RED against `main`), ruff clean; verified in a real browser against two seeded DBs (devices without OS → hint visible; with `Linux 5.15` → hidden). Same PR also corrected the `pytest -q` gotcha in `docs/gotchas.md` (a *second* `-q` silences the summary line; `addopts` already has one) and refreshed this STATUS after Falco closed #40/#42.
 - **#39 quick vs deep scan** (branch `hermes/scan-modes`, this PR): the single Scan button is now **Quick scan** (`nmap -sn` only — discovery, seconds; no `probe_os()`, no service pass) and **Deep scan** (the existing `-sn` then `-sV -O` two-pass scan, still the default for API clients). `ScanResult.mode` carries `quick`/`deep`, `POST /api/scan` takes `{"target", "mode"}`, and the mode is stored per scan (`scans.mode`, **schema v4**, in-place `ALTER TABLE` defaulting old rows to `deep`). Scan history labels each scan; the status line says `pass 1/1` for a quick scan and the bar fills the whole width, while a deep scan still shows `pass 1/2` → `pass 2/2`. **Missing data is never shown as a negative fact**: `diff_scans` compares port sets only when both scans are deep (otherwise every device would read as "changed open ports"), `/api/devices` returns `ports_probed` and the Open ports cell says `not probed`, and `/api/os-hint` explains a quick scan instead of blaming privileges. 189 tests pass (14 new: 4 engine, 8 store incl. the v3→v4 upgrade, 7 API, 6 frontend guards — see `tests/test_frontend_scan_modes.py`), ruff clean; verified in a real browser against the real app with nmap faked (quick: `pass 1/1`, 2 hosts, `not probed`, hint; deep: `pass 1/2` → `pass 2/2`, ports + OS, hint gone; deep→quick: ports cells become `not probed`).
 - **#74 deep scan a single device** (branch `hermes/device-deep-scan`, this PR): the device detail panel gained **Deep scan this device**, which runs a normal deep scan against just that device's current IP (`<ip>/32`) — seconds instead of a whole subnet. New route `POST /api/devices/<identity>/scan`: the identity is resolved to an IP **server-side from the store** (the UI never builds an address from possibly-stale data), and it goes through the same TargetGuard and one-scan-at-a-time 409 rule as any other scan. The `/32` scan is stored like any other (scan row with the `/32` target, `mode = deep`, sightings), so ports and OS land on the device and the history shows `… — 192.168.0.5/32 — deep`. A stale stored IP is not hidden: a `/32` that finds nothing marks the device absent for that scan. Also fixed: finishing a scan now refreshes an open detail panel (it was started FROM that panel and kept its pre-scan port table). 196 tests pass (6 new: 3 API in `tests/test_api.py`, 4 frontend guards — one is the id/detail refresh check), ruff clean; verified in a real browser (quick `/24` → all `not probed` → open atom → *Deep scan this device* → history `192.168.1.10/32 — deep`, atom `22/tcp, 80/tcp` + `Linux 2.6.32 - 3.x`, apollo untouched at `not probed`, detail panel refreshed).
+- **#41 mDNS name suggestions** (branch `hermes/mdns-names`, this PR — **part 1 of 2**; NetBIOS is the next PR): every scan, quick or deep, now starts an **mDNS/DNS-SD lookup in a background thread** (`netscope/mdns.py`, new dep `zeroconf` 0.154.0 / python-zeroconf, LGPL-2.1-or-later) and uses the advertised `.local` name to fill `HostResult.hostname`. The rule: mDNS fills a name when the host has **no PTR name**, or when its PTR name is **shared by 2+ hosts in the same scan** — the sinkhole signature (`blocked.local` for eight devices), which the store suppresses anyway. A unique PTR name always wins. Result: on this LAN the mDNS names remove the "MicroStar Intl device (192.168.0.11)" fallback for everything that announces itself (Chromecast, printers, Avahi/Windows hosts), with **no schema change** — it writes the existing `devices.hostname` via the existing merge. The lookup is best-effort (`{}` on any failure, bounded at 3.5 s + 1.5 s, join capped at 10 s) and can be switched off with `NETSCOPE_MDNS=0`. 214 tests pass (18 new: 12 in `tests/test_mdns.py`, 5 engine tests incl. the real `home_lan` capture with 8× `blocked.local`, 1 API test; the engine/API ones proven RED against `main`, 39 failures there because `NmapScanner` had no `resolver`), ruff clean. Verified against **real multicast**: a fake zeroconf service registered in this container was found by `MdnsNameResolver().names_by_ip()` → `{'192.168.0.10': 'atom.local'}` in 3.5 s, and through the real app in a browser the device row read `atom.local`. **Real hit rates on the home LAN still need one scan on Atlas/Apollo** — this container cannot see that LAN.
 
 ## In progress
-- **Nothing is in progress.** #39 (quick vs deep scan) is merged (#73) and #74 (per-device deep scan) is implemented in this PR. Remaining (optional): the idea issues **#41** (mDNS/NetBIOS name suggestions) and **#43** (CSV/JSON export, systemd unit, Docker image) only.
+- **Nothing is in progress.** #39 (#73) and #74 (#75) are merged; **#41 is half done: the mDNS name lookup ships in this PR, NetBIOS is the agreed next PR.** Remaining after that: **#43** (CSV/JSON export, systemd unit, Docker image) only.
 
-## Handoff state (2026-11-25, after #74 per-device deep scan — read this first)
-- `main` = `128fd68` (PR #73, quick vs deep) + the squash-merge of this PR (`hermes/device-deep-scan`). **No open PRs once it merges; nothing is in progress.**
+## Handoff state (2026-11-25, after #41 mDNS names — read this first)
+- `main` = `f116d8d` (PR #75, per-device deep scan) + the squash-merge of this PR (`hermes/mdns-names`). **No open PRs once it merges; nothing is in progress.**
 - **Every bug from the Claude Code review is fixed and closed**: #30–#38 are CLOSED, the "Bugfix backlog (code review #33-#38)" milestone is CLOSED. No open bug issue exists.
-- **Three optional items are done**: the #34 OS hint (`GET /api/os-hint`), **#39 quick vs deep scan** (two buttons, `scans.mode`, schema v4) and **#74 per-device deep scan** (`POST /api/devices/<identity>/scan` → `<ip>/32`). Nothing agreed with Falco is outstanding.
-- Open issues after this PR merges: **#41** (mDNS/NetBIOS name suggestions) and **#43** (CSV/JSON export, systemd unit, Docker image) — milestone "Ideas (later)" is **2 open / 3 closed**. **#40 and #42 were closed `not_planned` by Falco on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them on your own.
-- **Suite: 196 tests pass, ruff clean**; CI green on ubuntu-latest + windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in PR #66).
+- **Four optional items are done**: the #34 OS hint (`GET /api/os-hint`), **#39 quick vs deep scan** (two buttons, `scans.mode`, schema v4), **#74 per-device deep scan** (`POST /api/devices/<identity>/scan` → `<ip>/32`) and **#41 part 1: mDNS names** (`netscope/mdns.py`). **#41 part 2 (NetBIOS) is the agreed next PR** — it stays OPEN until then (`Closes #41` belongs in the NetBIOS PR, not this one).
+- Open issues: **#41** (mDNS half shipped; NetBIOS open) and **#43** (CSV/JSON export, systemd unit, Docker image) — milestone "Ideas (later)" is **2 open / 3 closed**. **#40 and #42 were closed `not_planned` by Falco on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them on your own.
+- **Suite: 214 tests pass, ruff clean**; CI green on ubuntu-latest + windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in PR #66).
 - **A real fixture exists**: `tests/fixtures/home_lan_complete_2026-11-25.xml` — Falco's completed scan (12 hosts, nmap 7.80 on Windows, 599.73 s), MAC addresses mechanically redacted with `scripts/redact_mac_addresses.py`; provenance and both sha256s in `tests/fixtures/README.md`, the raw capture stays out of the repo.
-- **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place. `NETSCOPE_DB` databases from before #73 keep working — old scans read as `deep`.
-- **Handoff timeline (all 2026-11-25)**: #65 docs handoff → #66 Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real fixture (MACs redacted) → #70 final housekeeping → #71 final STATUS update → #72 #34 OS hint → #73 quick vs deep (#39) → this PR (#74 per-device deep scan).
+- **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place. mDNS names needed no schema change.
+- **Needs one real-LAN run**: the mDNS hit rate on `192.168.0.0/24` is still unmeasured (this container cannot see that LAN). Scan on Atlas, then check whether device names changed from "vendor device (ip)" to `.local` names.
+- **Handoff timeline (all 2026-11-25)**: #65 docs handoff → #66 Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real fixture (MACs redacted) → #70 final housekeeping → #71 final STATUS update → #72 #34 OS hint → #73 quick vs deep (#39) → #75 per-device deep scan (#74) → this PR (#41 mDNS).
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
 1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (PR #72).
 2. ~~#39 quick scan vs deep scan~~ — **done** (PR #73).
-3. ~~#74 deep scan a single device from the detail panel~~ — **done** (this PR).
-4. Optional later: #41 mDNS/NetBIOS name suggestions, #43 CSV/JSON export + systemd unit + Docker image. (#40 and #42 were closed `not_planned` by Falco — do not pick them up.)
-5. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
+3. ~~#74 deep scan a single device from the detail panel~~ — **done** (PR #75).
+4. **#41 part 2 — NetBIOS name suggestions** (agreed; closes #41 when it lands).
+5. Optional later: #43 CSV/JSON export + systemd unit + Docker image. (#40 and #42 were closed `not_planned` by Falco — do not pick them up.)
+6. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -96,7 +99,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 196 passed
+uv run pytest                 # 214 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```

@@ -69,6 +69,7 @@ macOS. Settings are env vars, all optional:
 | `NETSCOPE_PORT` | `8000` | HTTP port |
 | `NETSCOPE_ALLOWED_HOSTS` | *(empty)* | Extra Host header names to trust (comma-separated) |
 | `NETSCOPE_NMAP_TIMEOUT` | `300` | Seconds per nmap pass; a `/24` with silent hosts can take minutes |
+| `NETSCOPE_MDNS` | `1` | Name suggestions over mDNS; `0` turns the lookup off |
 
 On Windows PowerShell: `$env:NETSCOPE_PORT = "8000"` before the run command.
 On Linux or macOS (bash/zsh): `NETSCOPE_PORT=8000 uv run python -m netscope`.
@@ -107,6 +108,12 @@ connections — allow it.
   ports per latest scan. Devices that vanish from a scan are kept and shown
   as absent. Hostname, OS and vendor are learned values and survive later
   scans that do not see them again.
+- **Names** come from reverse DNS first, then from mDNS/Bonjour: every scan
+  (quick or deep) listens to what devices announce about themselves and fills
+  in a name when DNS gave none — or when DNS gave the *same* name to several
+  devices (a sinkhole/Pi-hole answer such as `blocked.local`). A unique DNS
+  name is never overridden. Devices that announce nothing keep the vendor/IP
+  label. Turn the mDNS lookup off with `NETSCOPE_MDNS=0`.
 - **Manual naming**: open a device and type a name. Your name beats any
   hostname/vendor label and survives every later scan. Names are stored in
   their own table, so scans never overwrite them.
@@ -136,6 +143,14 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   from the `<port portid=...>` attribute, OS from `<os>`/`<osmatch>`). The
   runner is behind an interface, so tests replay recorded XML fixtures with a
   fake runner — scanner logic is fully testable offline, on any OS.
+- **`netscope/mdns.py` — name suggestions (#41).** Uses python-zeroconf
+  (LGPL-2.1-or-later, imported as a library) to browse DNS-SD over multicast
+  (UDP 5353, group `224.0.0.251`): the meta-query
+  `_services._dns-sd._udp.local.` lists the service types on the LAN, each
+  type lists its instances, and each instance resolves to a host name plus
+  addresses. The lookup runs in a background thread **while nmap scans** (a
+  few seconds, bounded by its timeout) and is best-effort: any failure just
+  means no names.
 - **`netscope/device.py` + `vendor_registry.py` — device model.** Identity is
   the MAC when known (stable across DHCP leases), else the IP, so a device
   never forks into two rows. `merge_scan()` keeps the latest non-empty
@@ -159,7 +174,7 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   renders, and polls status. `/api/local-subnet` asks the OS which local IP it
   would route from (UDP `connect()`, no packet sent) and assumes `/24` —
   detection, never a scan.
-- **`tests/` — 196 tests**, fixture-driven (recorded nmap XML), API tested via
+- **`tests/` — 214 tests**, fixture-driven (recorded nmap XML), API tested via
   `TestClient`, store tests on temp databases. No test assumes POSIX
   binaries; CI runs the suite on both Linux and Windows.
 

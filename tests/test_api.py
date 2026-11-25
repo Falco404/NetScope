@@ -36,9 +36,11 @@ class FakeRunner:
         return True
 
 
-def make_client(tmp_path, block=None, block_services=None, subnet=None, extra_hosts=()):
+def make_client(
+    tmp_path, block=None, block_services=None, subnet=None, extra_hosts=(), resolver=None
+):
     store = SQLiteStore(tmp_path / "test.db")
-    scanner = NmapScanner(FakeRunner(block, block_services))
+    scanner = NmapScanner(FakeRunner(block, block_services), resolver=resolver)
     api = NetScopeAPI(store, scanner, subnet_fn=lambda: subnet)
     # TestClient sends Host: testserver, so the harness must allow it explicitly
     # (build_app allows localhost/127.0.0.1 by default; extras are appended).
@@ -610,4 +612,25 @@ def test_device_scan_obeys_one_scan_at_a_time(tmp_path):
     block.set()
     wait_done(api)
     store0.close()
+    store.close()
+
+
+def test_mdns_names_reach_the_device_table(tmp_path):
+    """#41: a name learned over mDNS is stored as the hostname, so the table
+    shows it instead of falling back to "vendor device (ip)"."""
+
+    class FakeResolver:
+        def names_by_ip(self):
+            return {"192.168.1.10": "atom.local"}
+
+    client, api, store = make_client(tmp_path, resolver=FakeResolver())
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+
+    devices = {d["ip"]: d for d in client.get("/api/devices").json()}
+    assert devices["192.168.1.10"]["hostname"] == "atom.local"
+    assert devices["192.168.1.10"]["name"] == "atom.local"
+    # A device with no answer keeps the bare-IP label.
+    assert devices["192.168.1.20"]["hostname"] is None
+    assert devices["192.168.1.20"]["name"] == "192.168.1.20"
     store.close()
