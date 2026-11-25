@@ -5,6 +5,7 @@ let devices = [];
 let sortKey = "name";
 let sortAsc = true;
 let detailIdentity = null;
+let detailIp = null;
 let osDetectionAvailable = true;
 
 async function api(path, options) {
@@ -107,6 +108,7 @@ async function loadAll() {
 async function openDetail(identity) {
   const d = await api(`/api/devices/${encodeURIComponent(identity)}`);
   detailIdentity = identity;
+  detailIp = d.ip; // shown while a per-device scan runs; the server re-reads it
   $("detail").hidden = false;
   $("detail-title").textContent = d.name;
   $("detail-fields").replaceChildren(
@@ -181,9 +183,26 @@ async function startScan(mode) {
 }
 
 function setScanning(busy) {
-  // Both buttons are disabled together: the server runs one scan at a time.
+  // Every scan trigger is disabled together: the server runs one scan at a
+  // time (a second request is refused with 409).
   $("quick-btn").disabled = busy;
   $("deep-btn").disabled = busy;
+  $("detail-scan").disabled = busy;
+}
+
+async function scanDevice() {
+  // #74: deep scan of ONE device. The server resolves identity -> current IP
+  // and scans <ip>/32, so the UI never builds an address from stale data.
+  if (!detailIdentity) return;
+  setScanning(true);
+  try {
+    await api(`/api/devices/${encodeURIComponent(detailIdentity)}/scan`, { method: "POST" });
+    $("scan-status").textContent = `deep scanning one device — ${detailIp}`;
+    pollStatus();
+  } catch (e) {
+    $("scan-status").textContent = e.message;
+    setScanning(false);
+  }
 }
 
 function barWidth(s) {
@@ -239,7 +258,12 @@ function pollStatus() {
       return;
     }
     setScanning(false);
-    if (s.state === "done") await loadAll();
+    if (s.state === "done") {
+      await loadAll();
+      // #74: a scan can be started FROM the detail panel, so refresh it too —
+      // otherwise the ports/OS tables inside it keep showing pre-scan data.
+      if (detailIdentity && !$("detail").hidden) await openDetail(detailIdentity);
+    }
   };
   poll();
 }
@@ -262,6 +286,7 @@ async function prefillTarget() {
 
 $("quick-btn").addEventListener("click", () => startScan("quick"));
 $("deep-btn").addEventListener("click", () => startScan("deep"));
+$("detail-scan").addEventListener("click", scanDevice);
 $("detail-close").addEventListener("click", () => { $("detail").hidden = true; });
 $("name-save").addEventListener("click", saveName);
 $("name-clear").addEventListener("click", clearName);

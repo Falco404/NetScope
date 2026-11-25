@@ -550,3 +550,64 @@ def test_quick_scan_marks_ports_as_not_probed(tmp_path):
     # The learned OS guess survives (COALESCE), only the port snapshot is gone.
     assert quick["192.168.1.10"]["os_guess"] == "Linux 2.6.32 - 3.x"
     store.close()
+
+
+def test_device_deep_scan_targets_only_that_host(tmp_path):
+    """#74: the detail-panel button deep-scans <ip>/32, not the whole subnet."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+    before = client.get("/api/devices").json()
+    atom = next(d for d in before if d["identity"] == "AA:BB:CC:DD:EE:01")
+    assert atom["open_ports"] == [] and atom["ports_probed"] is False
+    calls_before = len(api.scanner.runner.calls)
+
+    res = client.post("/api/devices/AA:BB:CC:DD:EE:01/scan")
+    assert res.status_code == 200
+    assert res.json()["mode"] == "deep"
+    assert res.json()["target"] == "192.168.1.10/32"
+
+    status = wait_done(api)
+    assert status["state"] == "done"
+    new_calls = api.scanner.runner.calls[calls_before:]
+    assert len(new_calls) == 2, f"a device scan is still a deep scan: {new_calls}"
+    assert new_calls[0] == ["-sn", "-oX", "-", "192.168.1.10/32"]
+
+    scans = client.get("/api/scans").json()
+    assert scans[0]["target"] == "192.168.1.10/32"
+    assert scans[0]["mode"] == "deep"
+
+    after = {d["identity"]: d for d in client.get("/api/devices").json()}
+    assert after["AA:BB:CC:DD:EE:01"]["open_ports"] == ["22/tcp", "80/tcp"]
+    assert after["AA:BB:CC:DD:EE:01"]["ports_probed"] is True
+    assert after["AA:BB:CC:DD:EE:01"]["os_guess"] == "Linux 2.6.32 - 3.x"
+    store.close()
+
+
+def test_device_scan_unknown_identity_is_404(tmp_path):
+    client, api, store = make_client(tmp_path)
+    res = client.post("/api/devices/nope/scan")
+    assert res.status_code == 404
+    assert api.scanner.runner.calls == []
+    store.close()
+
+
+def test_device_scan_obeys_one_scan_at_a_time(tmp_path):
+    """A per-device scan must not slip past the 409 rule while another runs."""
+    # Seed a device with an unblocked client over the same DB file.
+    client0, api0, store0 = make_client(tmp_path)
+    client0.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api0)
+
+    block = threading.Event()
+    client, api, store = make_client(tmp_path, block=block)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})  # parked discovery
+
+    res = client.post("/api/devices/AA:BB:CC:DD:EE:01/scan")
+    assert res.status_code == 409, res.text
+    assert "already running" in res.json()["detail"]
+
+    block.set()
+    wait_done(api)
+    store0.close()
+    store.close()

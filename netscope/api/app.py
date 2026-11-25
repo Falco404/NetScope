@@ -305,6 +305,21 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
             ],
         }
 
+    @app.post("/api/devices/{identity}/scan")
+    def scan_device(identity: str) -> dict[str, Any]:
+        """#74: deep-scan ONE device at its current stored IP (`<ip>/32`).
+
+        The IP comes from the store, not from the request: the UI only knows
+        the identity, and the address can change between scans. `start_scan`
+        applies TargetGuard and the one-scan-at-a-time rule exactly as it does
+        for a subnet scan, so a `/32` cannot bypass either.
+        """
+        device = api.device_map().get(identity)
+        if device is None:
+            raise HTTPException(status_code=404, detail="unknown device")
+        api.start_scan(f"{device.ip}/32", "deep")
+        return api.status()
+
     @app.put("/api/devices/{identity}/name")
     def set_device_name(identity: str, req: DeviceNameRequest) -> dict[str, Any]:
         # Manual label (M8): survives later scans and beats hostname/vendor.

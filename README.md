@@ -110,6 +110,11 @@ connections — allow it.
 - **Manual naming**: open a device and type a name. Your name beats any
   hostname/vendor label and survives every later scan. Names are stored in
   their own table, so scans never overwrite them.
+- **Deep scan a single device**: open a device and press *Deep scan this
+  device* — it runs the deep scan against just that device's current IP
+  (`<ip>/32`) instead of the whole subnet, so a host that only ever got a
+  quick scan has its ports and OS filled in within seconds. It is a normal
+  scan in the history (with the `/32` target).
 - **Changes since previous scan** lists appeared/disappeared devices;
   **scan history** lists past scans with target and duration.
 
@@ -148,12 +153,13 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
   scans.
 - **`netscope/api/app.py` + `static/` — web app.** JSON endpoints
   (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`,
-  `/api/os-hint`, `POST /api/scan`, `/api/scan/status`, `/api/local-subnet`).
+  `/api/os-hint`, `POST /api/scan`, `POST /api/devices/<identity>/scan`,
+  `/api/scan/status`, `/api/local-subnet`).
   Scans run in a background thread; the UI stays dumb — it fetches JSON,
   renders, and polls status. `/api/local-subnet` asks the OS which local IP it
   would route from (UDP `connect()`, no packet sent) and assumes `/24` —
   detection, never a scan.
-- **`tests/` — 189 tests**, fixture-driven (recorded nmap XML), API tested via
+- **`tests/` — 196 tests**, fixture-driven (recorded nmap XML), API tested via
   `TestClient`, store tests on temp databases. No test assumes POSIX
   binaries; CI runs the suite on both Linux and Windows.
 
