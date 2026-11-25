@@ -200,3 +200,74 @@ def test_quick_scan_reports_only_the_discovery_phase():
 
     NmapScanner(runner).scan("192.168.1.0/24", progress=on_progress, deep=False)
     assert events == ["discovery:-", "discovery:192.168.1.10", "discovery:192.168.1.20"]
+
+
+class FakeResolver:
+    """Stands in for netscope.mdns.MdnsNameResolver (#41) — no sockets."""
+
+    def __init__(self, names: dict[str, str] | None = None, fail: bool = False) -> None:
+        self.names = names or {}
+        self.fail = fail
+        self.calls = 0
+
+    def names_by_ip(self) -> dict[str, str]:
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("multicast is blocked")
+        return self.names
+
+
+def test_quick_scan_fills_missing_hostnames_from_mdns():
+    """The discovery fixture has no PTR names at all, so both hosts get one."""
+    runner = fake_runner()
+    resolver = FakeResolver({"192.168.1.10": "atom.local", "192.168.1.20": "apollo.local"})
+    result = NmapScanner(runner, resolver=resolver).scan("192.168.1.0/24", deep=False)
+
+    assert [h.hostname for h in result.hosts] == ["atom.local", "apollo.local"]
+    assert resolver.calls == 1
+
+
+def test_mdns_never_overrides_a_unique_ptr_name():
+    """A name the network reports (PTR) beats a self-reported `.local` one."""
+    runner = fake_runner()
+    resolver = FakeResolver({"192.168.1.10": "wrong.local", "192.168.1.20": "wrong2.local"})
+    result = NmapScanner(runner, resolver=resolver).scan("192.168.1.0/24")
+
+    assert [h.hostname for h in result.hosts] == ["atom", "apollo"]
+
+
+def test_mdns_replaces_a_hostname_shared_by_several_hosts():
+    """The sinkhole signature: every PTR answer is `blocked.local`, which the
+    store suppresses. mDNS names replace it for the hosts that answer, while a
+    unique PTR name (`pi.hole`) is kept and unanswered hosts are unchanged."""
+    real = (FIXTURES / "home_lan_complete_2026-11-25.xml").read_text()
+    runner = FakeRunner(real, real)
+    resolver = FakeResolver(
+        {
+            "192.168.0.2": "router.local",
+            "192.168.0.250": "wrong-for-pi-hole.local",
+        }
+    )
+    result = NmapScanner(runner, resolver=resolver).scan("192.168.0.0/24")
+    by_ip = {h.ip: h.hostname for h in result.hosts}
+
+    assert by_ip["192.168.0.2"] == "router.local"  # was blocked.local
+    assert by_ip["192.168.0.4"] == "blocked.local"  # no mDNS answer: untouched
+    assert by_ip["192.168.0.250"] == "pi.hole"  # unique PTR name wins
+    assert by_ip["192.168.0.14"] is None  # no PTR, no mDNS answer
+
+
+def test_a_failing_name_lookup_never_fails_the_scan():
+    runner = fake_runner()
+    result = NmapScanner(runner, resolver=FakeResolver(fail=True)).scan("192.168.1.0/24")
+
+    assert result.mode == "deep"
+    assert [h.hostname for h in result.hosts] == ["atom", "apollo"]  # untouched
+    assert len(runner.calls) == 2
+
+
+def test_no_resolver_means_no_name_lookup_at_all():
+    """Default construction (tests, embedders) stays pure nmap."""
+    runner = fake_runner()
+    result = NmapScanner(runner).scan("192.168.1.0/24")
+    assert [h.hostname for h in result.hosts] == ["atom", "apollo"]

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import threading
+from collections import Counter
+from collections.abc import Callable, Mapping
+from dataclasses import replace
 
+from netscope.mdns import NameResolver
 from netscope.scanner.models import HostResult, ScanResult
 from netscope.scanner.parser import parse_nmap_xml
 from netscope.scanner.runner import NmapRunner
@@ -54,8 +58,11 @@ class NmapScanner:
     target never reaches nmap.
     """
 
-    def __init__(self, runner: NmapRunner) -> None:
+    def __init__(self, runner: NmapRunner, resolver: NameResolver | None = None) -> None:
         self.runner = runner
+        # #41: optional mDNS name source. None keeps every existing caller (and
+        # every test) on the pure-nmap behaviour.
+        self.resolver = resolver
 
     def scan(
         self,
@@ -66,6 +73,9 @@ class NmapScanner:
         net = validate_target(target)  # raises IllegalTargetError before any run()
         target_str = str(net)
         mode = MODE_DEEP if deep else MODE_QUICK
+        # mDNS takes a few seconds, so it runs while nmap works (#41). Nothing
+        # waits for it until a scan has hosts to attach names to.
+        lookup = _NameLookup(self.resolver)
 
         if progress is not None:
             progress(PHASE_DISCOVERY, None)  # entering the discovery pass
@@ -80,7 +90,8 @@ class NmapScanner:
         if not deep:
             # Quick scan: discovery IS the result. No probe, no service pass —
             # `probe_os()` would itself run nmap and cost seconds.
-            return ScanResult(target=target_str, hosts=tuple(discovered_hosts), mode=mode)
+            hosts = self._with_mdns_names(discovered_hosts, lookup.names())
+            return ScanResult(target=target_str, hosts=hosts, mode=mode)
 
         discovered = [h.ip for h in discovered_hosts]
 
@@ -106,7 +117,68 @@ class NmapScanner:
 
         return ScanResult(
             target=target_str,
-            hosts=result.hosts,
+            hosts=self._with_mdns_names(result.hosts, lookup.names()),
             os_detection_available=os_available,
             mode=mode,
         )
+
+    def _with_mdns_names(
+        self,
+        hosts: tuple[HostResult, ...],
+        names: Mapping[str, str],
+    ) -> tuple[HostResult, ...]:
+        """Fill hostnames from mDNS where PTR gave nothing useful (#41).
+
+        Two cases use the mDNS name:
+
+        * the host has no PTR name at all;
+        * the PTR name is shared by several hosts in THIS scan — that is the
+          sinkhole signature (`blocked.local` for every address on Falco's
+          LAN), and the store suppresses such names at read time anyway, so
+          the device would otherwise show as "vendor device (ip)".
+
+        A unique PTR name always wins: it is what the network says, and
+        overwriting it with a self-reported `.local` name would be a downgrade.
+        """
+        counts = Counter(h.hostname for h in hosts if h.hostname)
+        out: list[HostResult] = []
+        for host in hosts:
+            proposed = names.get(host.ip)
+            if proposed and (not host.hostname or counts[host.hostname] > 1):
+                host = replace(host, hostname=proposed)
+            out.append(host)
+        return tuple(out)
+
+
+class _NameLookup:
+    """Run a name lookup in the background while nmap scans.
+
+    The resolver has its own timeout; this class only guarantees that a wedged
+    lookup cannot hold a scan hostage (`JOIN_TIMEOUT`) and that an exception
+    inside it never escapes (a name is a nicety, not a scan result).
+    """
+
+    JOIN_TIMEOUT = 10.0
+
+    def __init__(self, resolver: NameResolver | None) -> None:
+        self._names: dict[str, str] = {}
+        self._thread: threading.Thread | None = None
+        if resolver is not None:
+            self._thread = threading.Thread(
+                target=self._run,
+                args=(resolver,),
+                daemon=True,
+                name="netscope-mdns",
+            )
+            self._thread.start()
+
+    def _run(self, resolver: NameResolver) -> None:
+        try:
+            self._names = dict(resolver.names_by_ip())
+        except Exception:  # noqa: BLE001 - a name lookup must never fail a scan
+            self._names = {}
+
+    def names(self) -> dict[str, str]:
+        if self._thread is not None:
+            self._thread.join(timeout=self.JOIN_TIMEOUT)
+        return self._names

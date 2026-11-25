@@ -6,7 +6,11 @@ license = "MIT"
 license-files = ["LICENSE"]
 classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "zeroconf>=0.154.0",
+]
 
 [dependency-groups]
 # Synced by plain `uv sync`. Do NOT move these to [project.optional-dependencies]:

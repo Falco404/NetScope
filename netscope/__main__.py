@@ -14,6 +14,7 @@ import os
 import uvicorn
 
 from netscope.api import DEFAULT_ALLOWED_HOSTS, NetScopeAPI, build_app
+from netscope.mdns import MdnsNameResolver
 from netscope.scanner import NmapScanner, SubprocessNmapRunner
 from netscope.store import SQLiteStore
 from netscope.vendor_registry import MAC_PREFIXES_FILENAME, OUI_VENDORS, load_default_mac_prefixes
@@ -86,9 +87,25 @@ def main() -> None:
             f"Vendor registry: {len(OUI_VENDORS)} built-in prefixes "
             f"(no {MAC_PREFIXES_FILENAME} found — install nmap or set NMAPDIR)"
         )
+    # #41: mDNS name suggestions run during every scan. Off only by explicit
+    # env choice (NETSCOPE_MDNS=0), e.g. on a network where multicast is
+    # filtered and the few seconds are not worth it.
+    mdns_enabled = os.environ.get("NETSCOPE_MDNS", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
     store = SQLiteStore()
-    api = NetScopeAPI(store, NmapScanner(SubprocessNmapRunner(timeout=timeout)))
+    api = NetScopeAPI(
+        store,
+        NmapScanner(
+            SubprocessNmapRunner(timeout=timeout),
+            resolver=MdnsNameResolver() if mdns_enabled else None,
+        ),
+    )
     allowed = ", ".join((*DEFAULT_ALLOWED_HOSTS, *extra_hosts))
+    print(f"mDNS name suggestions: {'on (zeroconf)' if mdns_enabled else 'off (NETSCOPE_MDNS=0)'}")
     print(f"NetScope on http://{host}:{port}  (db: {store.path}, nmap timeout: {timeout}s)")
     print(f"Trusted Host headers: {allowed}")
     uvicorn.run(
