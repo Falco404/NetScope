@@ -37,10 +37,16 @@ class FakeRunner:
 
 
 def make_client(
-    tmp_path, block=None, block_services=None, subnet=None, extra_hosts=(), resolver=None
+    tmp_path,
+    block=None,
+    block_services=None,
+    subnet=None,
+    extra_hosts=(),
+    resolver=None,
+    netbios=None,
 ):
     store = SQLiteStore(tmp_path / "test.db")
-    scanner = NmapScanner(FakeRunner(block, block_services), resolver=resolver)
+    scanner = NmapScanner(FakeRunner(block, block_services), resolver=resolver, netbios=netbios)
     api = NetScopeAPI(store, scanner, subnet_fn=lambda: subnet)
     # TestClient sends Host: testserver, so the harness must allow it explicitly
     # (build_app allows localhost/127.0.0.1 by default; extras are appended).
@@ -633,4 +639,23 @@ def test_mdns_names_reach_the_device_table(tmp_path):
     # A device with no answer keeps the bare-IP label.
     assert devices["192.168.1.20"]["hostname"] is None
     assert devices["192.168.1.20"]["name"] == "192.168.1.20"
+    store.close()
+
+
+def test_netbios_names_reach_the_device_table(tmp_path):
+    """#41 part 2: a NetBIOS workstation name is stored as the hostname when
+    neither PTR nor mDNS named the device."""
+
+    class FakeNetbios:
+        def names_by_ip(self, ips):
+            return {"192.168.1.20": "DESKTOP-ABC123"}
+
+    client, api, store = make_client(tmp_path, netbios=FakeNetbios())
+    client.post("/api/scan", json={"target": "192.168.1.0/24", "mode": "quick"})
+    wait_done(api)
+
+    devices = {d["ip"]: d for d in client.get("/api/devices").json()}
+    assert devices["192.168.1.20"]["hostname"] == "DESKTOP-ABC123"
+    assert devices["192.168.1.20"]["name"] == "DESKTOP-ABC123"
+    assert devices["192.168.1.10"]["hostname"] is None  # NetBIOS did not name it
     store.close()

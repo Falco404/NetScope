@@ -15,6 +15,7 @@ import uvicorn
 
 from netscope.api import DEFAULT_ALLOWED_HOSTS, NetScopeAPI, build_app
 from netscope.mdns import MdnsNameResolver
+from netscope.netbios import NetbiosNameResolver
 from netscope.scanner import NmapScanner, SubprocessNmapRunner
 from netscope.store import SQLiteStore
 from netscope.vendor_registry import MAC_PREFIXES_FILENAME, OUI_VENDORS, load_default_mac_prefixes
@@ -58,6 +59,14 @@ def parse_timeout(value: str) -> float:
     return timeout
 
 
+def _env_flag(name: str, default: bool = True) -> bool:
+    """Parse a yes/no env var; anything but 0/false/no/off means enabled."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in ("0", "false", "no", "off", "")
+
+
 def main() -> None:
     host = os.environ.get("NETSCOPE_HOST", "127.0.0.1")
     # #38: validate the numeric config BEFORE anything is created — a bad
@@ -87,25 +96,27 @@ def main() -> None:
             f"Vendor registry: {len(OUI_VENDORS)} built-in prefixes "
             f"(no {MAC_PREFIXES_FILENAME} found — install nmap or set NMAPDIR)"
         )
-    # #41: mDNS name suggestions run during every scan. Off only by explicit
-    # env choice (NETSCOPE_MDNS=0), e.g. on a network where multicast is
-    # filtered and the few seconds are not worth it.
-    mdns_enabled = os.environ.get("NETSCOPE_MDNS", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
-        "off",
-    )
+    # #41: name suggestions run during every scan. Off only by explicit env
+    # choice (NETSCOPE_MDNS=0 / NETSCOPE_NETBIOS=0), e.g. on a network where
+    # multicast is filtered, UDP 137 is blocked, or the few seconds are not
+    # worth it.
+    mdns_enabled = _env_flag("NETSCOPE_MDNS")
+    netbios_enabled = _env_flag("NETSCOPE_NETBIOS")
     store = SQLiteStore()
     api = NetScopeAPI(
         store,
         NmapScanner(
             SubprocessNmapRunner(timeout=timeout),
             resolver=MdnsNameResolver() if mdns_enabled else None,
+            netbios=NetbiosNameResolver() if netbios_enabled else None,
         ),
     )
     allowed = ", ".join((*DEFAULT_ALLOWED_HOSTS, *extra_hosts))
-    print(f"mDNS name suggestions: {'on (zeroconf)' if mdns_enabled else 'off (NETSCOPE_MDNS=0)'}")
+    print(
+        "Name suggestions: "
+        f"mDNS {'on (zeroconf)' if mdns_enabled else 'off'}, "
+        f"NetBIOS {'on' if netbios_enabled else 'off'}"
+    )
     print(f"NetScope on http://{host}:{port}  (db: {store.path}, nmap timeout: {timeout}s)")
     print(f"Trusted Host headers: {allowed}")
     uvicorn.run(
