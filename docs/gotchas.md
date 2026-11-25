@@ -71,10 +71,18 @@ Written for the next session. Each one cost real debugging time.
 - **`NETSCOPE_HOST=0.0.0.0` does not make LAN clients trusted** — `0.0.0.0` is a bind address and never arrives as a `Host` header. A LAN device reaching the UI must have its own address/name in `NETSCOPE_ALLOWED_HOSTS` (comma-separated, whitespace-tolerant). Verified live 2026-11-24: LAN bind allowed `192.168.0.14:8000`/`atom.local`, still 400'd `evil.example.com`.
 - **IPv6 loopback `[::1]:8000` is rejected** by the default allowlist (Starlette's host parse of the bracketed literal doesn't match `::1`). If you ever open the UI that way, add it explicitly.
 
+## Threading & SQLite (#37)
+- **One connection per thread, not one shared connection.** `store.conn` is a `threading.local` property. A shared connection means every request thread reads *and commits* the scan thread's open transaction: `set_device_name`'s `commit()` used to publish a half-written `save_scan`, and readers could see a `scans` row with zero `scan_devices` rows.
+- **`foreign_keys`, `journal_mode` and `busy_timeout` are per-connection pragmas.** Setting them once on one connection does nothing for the others — set them in the connection factory.
+- **WAL is what lets the UI stay responsive during a scan write**: readers get a committed snapshot while the scan thread holds the write lock. Without WAL a writer blocks readers on the default `delete` journal.
+- **A failed write must roll back explicitly** (`_write_txn()`): otherwise the thread's connection keeps an open transaction that blocks every other writer until `busy_timeout` gives up, and a later commit on that connection publishes the abandoned rows.
+- **Deterministic race tests use a barrier at a real seam**, not sleeps: `merge_scan` is called inside `save_scan`'s transaction after the `scans` insert and before any device row, so monkeypatching it parks the writer at exactly the interesting moment. Remember to capture the original function *before* `monkeypatch.setattr`, or the wrapper recurses.
+- **SQLite allows only one writer at a time**, so a test cannot have a second thread write while the first is parked mid-transaction — it deadlocks until `busy_timeout` raises `OperationalError: database is locked`. Park the writer with a barrier that *times out* so the writer gives up and the second write proceeds.
+
 ## Tests & CI
 - **CI is Linux-only (3.12/3.13), Falco runs tests on Windows.** Windows-only test bugs never show in CI: never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) → 111 (#36 Host allowlist: 5 API tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) → 111 (#36 Host allowlist: 5 API tests) → 114 (#37 threading: 3 store race/connection tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync --extra dev` first if deps are missing.
 
 ## Merging workflow

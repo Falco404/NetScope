@@ -1,9 +1,11 @@
 """Store tests on temp DBs (pytest tmp_path) — no shared state, no network."""
 
+import threading
 from pathlib import Path
 
 import pytest
 
+import netscope.store.store as store_module
 from netscope.device import Device
 from netscope.scanner.models import HostResult, PortResult, ScanResult
 from netscope.scanner.parser import parse_nmap_xml
@@ -370,3 +372,100 @@ def test_conflicting_mac_stays_separate_in_store(store):
     assert old.mac == "AA:BB:CC:DD:EE:01", "stored MAC not overwritten"
     assert old.last_seen_scan == 1, "old machine not sighted in scan 2"
     assert store.sightings(2) == {"FF:AA:BB:CC:DD:EE": "192.168.1.10"}
+
+
+# --- #37: one SQLite connection shared across threads ---
+# merge_scan is the seam inside save_scan's transaction: the `scans` row is
+# already inserted there, no device row is yet. A barrier there makes the race
+# deterministic instead of timing-dependent.
+
+
+def test_reader_never_sees_half_written_scan(tmp_path, monkeypatch):
+    """A request thread must not observe a scan row without its devices."""
+    store = SQLiteStore(tmp_path / "race.db")
+    result = scan_single_host("192.168.1.10", 22)
+    inside = threading.Barrier(2, timeout=5)
+    resume = threading.Barrier(2, timeout=5)
+
+    real_merge = store_module.merge_scan
+
+    def merge_and_pause(*args, **kwargs):
+        out = real_merge(*args, **kwargs)
+        inside.wait()  # writer parked with its transaction still open
+        resume.wait()
+        return out
+
+    monkeypatch.setattr(store_module, "merge_scan", merge_and_pause)
+    writer = threading.Thread(target=store.save_scan, args=(result, {}))
+    writer.start()
+
+    inside.wait()
+    scan_id = store.latest_scan_id()
+    sighted = store.devices_in_scan(scan_id) if scan_id is not None else []
+    resume.wait()
+    writer.join()
+
+    assert scan_id is None or sighted, (
+        f"reader saw scan {scan_id} with {len(sighted)} devices — half-written scan"
+    )
+
+
+def test_name_write_cannot_commit_a_partial_scan(tmp_path, monkeypatch):
+    """`set_device_name` commits on its own; it must not commit another thread's
+    half-written `save_scan` (issue #37)."""
+    store = SQLiteStore(tmp_path / "race.db")
+    store.save_scan(scan_single_host("192.168.1.10", 22), {}, ts=TS1)
+
+    inside = threading.Barrier(2, timeout=5)
+    resume = threading.Barrier(2, timeout=1)  # times out: the scan gives up
+
+    real_merge = store_module.merge_scan
+
+    def merge_then_boom(*args, **kwargs):
+        real_merge(*args, **kwargs)
+        inside.wait()
+        try:
+            resume.wait()
+        except Exception:  # BarrierTimeout: the parked scan write gives up
+            pass
+        raise RuntimeError("simulated mid-scan failure")
+
+    monkeypatch.setattr(store_module, "merge_scan", merge_then_boom)
+
+    def run_failing_scan() -> None:
+        try:
+            store.save_scan(scan_single_host("192.168.1.11", 80), {})
+        except RuntimeError:
+            pass  # the scan write failed on purpose; only its rollback matters
+
+    writer = threading.Thread(target=run_failing_scan)
+    writer.start()
+
+    inside.wait()
+    # The name-write must wait for the scan transaction to end, not slip a
+    # commit into it: it can only finish once the scan has failed and rolled back.
+    name_thread = threading.Thread(target=lambda: store.set_device_name("192.168.1.10", "lab"))
+    name_thread.start()
+    name_thread.join(timeout=10)
+    writer.join()
+
+    assert not name_thread.is_alive(), "name-write deadlocked behind the scan write"
+    assert len(store.list_scans()) == 1, "failed scan left a half-written row behind"
+    named = store.conn.execute(
+        "SELECT name FROM device_names WHERE identity = '192.168.1.10'"
+    ).fetchone()
+    assert named == ("lab",), "name-write lost while waiting"
+
+
+def test_each_thread_gets_its_own_connection(tmp_path):
+    store = SQLiteStore(tmp_path / "own.db")
+    ids: list[int] = []
+
+    def grab() -> None:
+        ids.append(id(store.conn))
+
+    thread = threading.Thread(target=grab)
+    thread.start()
+    thread.join()
+    assert len(ids) == 1 and ids[0] != id(store.conn)
+    assert store.conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
