@@ -430,3 +430,33 @@ def test_diff_unknown_to_id_without_from_id_names_the_id(tmp_path):
     res = client.get("/api/diff", params={"to_id": 999})
     assert res.status_code == 404
     assert "999" in res.json()["detail"], res.json()["detail"]
+
+
+def test_os_hint_is_silent_without_devices(tmp_path):
+    """#34 polish: nothing to explain before the first scan."""
+    client, _, store = make_client(tmp_path)
+    assert client.get("/api/os-hint").json() == {"hint": None}
+    store.close()
+
+
+def test_os_hint_is_silent_when_a_device_has_an_os_guess(tmp_path):
+    """The service fixture carries `Linux 2.6.32 - 3.x` for atom, so the OS
+    column is NOT empty and no hint may appear (no false alarm)."""
+    client, api, store = make_client(tmp_path)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+    wait_done(api)
+    assert client.get("/api/devices").json(), "the scan must have stored devices"
+    assert client.get("/api/os-hint").json() == {"hint": None}
+    store.close()
+
+
+def test_os_hint_explains_an_empty_os_column(tmp_path):
+    """A -O-less scan stores devices with no OS guess; the UI must be told why
+    the column is empty (admin on Windows / root on Linux-macOS)."""
+    client, _, store = make_client(tmp_path)
+    host = HostResult(ip="192.168.1.50", up=True, hostname="nas", mac="AA:BB:CC:00:11:22")
+    store.save_scan(ScanResult(target="192.168.1.0/24", hosts=(host,)), {})
+    hint = client.get("/api/os-hint").json()["hint"]
+    assert hint and "OS" in hint
+    assert "admin" in hint and "root" in hint, hint
+    store.close()
