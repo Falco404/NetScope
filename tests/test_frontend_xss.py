@@ -28,6 +28,37 @@ def test_scan_data_is_rendered_with_text_content():
     assert "replaceChildren" in src, "lists must be rebuilt with replaceChildren"
 
 
+def test_progress_bar_is_not_a_hardcoded_fake():
+    """#37: while a scan ran, the bar sat at a hardcoded 60% — a number with
+    no relation to reality. The width must be computed from the status JSON
+    (phase + host counts + elapsed/timeout), never a fixed percentage."""
+    src = APP_JS.read_text(encoding="utf-8")
+    # Every progress-bar width assignment must be computed, not a literal
+    # percentage. The old code was `= s.state === "running" ? "60%" : ...`.
+    i = 0
+    saw_assignment = False
+    while (i := src.find('$("progress-bar").style.width', i)) != -1:
+        j = src.find(";", i)
+        assert j != -1
+        rhs = src[i + len('$("progress-bar").style.width') : j]
+        assert "=" in rhs, "progress-bar width assignment malformed"
+        rhs = rhs.split("=", 1)[1].strip()
+        assert '"%' not in rhs and "'%" not in rhs, (
+            f"#37: progress bar width must be computed from scan status, "
+            f"not a hardcoded percentage: {rhs!r}"
+        )
+        saw_assignment = True
+        i = j
+    assert saw_assignment, "app.js must still drive the progress bar"
+
+    # The width comes from a helper that reads the live progress fields.
+    assert "function barWidth" in src, "bar width should come from a helper over the status JSON"
+    start = src.find("function barWidth")
+    body = src[start : start + 900]
+    for field in ("phase", "hosts_in_phase", "hosts_found", "elapsed_seconds"):
+        assert field in body, f"barWidth must use s.{field} to compute honest progress"
+
+
 def test_replace_children_spreads_array_arguments():
     """A bare array passed to replaceChildren is coerced to a string.
 

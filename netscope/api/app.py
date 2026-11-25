@@ -38,11 +38,19 @@ DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
 
 @dataclass
 class ScanJob:
-    """State of the single background scan the server can run at a time."""
+    """State of the single background scan the server can run at a time.
+
+    Progress state is IN-PROCESS only (#37): it is transient telemetry of
+    the running scan — once the scan is done, the final inventory is already
+    in the store, so persisting per-phase counters would add schema churn
+    for no readable history.
+    """
 
     state: str = "idle"  # idle | running | done | error
     target: str | None = None
-    hosts_found: int = 0
+    hosts_found: int = 0  # cumulative sightings across both passes
+    phase: str | None = None  # "discovery" | "services" while running
+    hosts_in_phase: int = 0  # sightings reported by the CURRENT pass
     scan_id: int | None = None
     error: str | None = None
     duration_seconds: float | None = None
@@ -111,10 +119,25 @@ class NetScopeAPI:
                 self.job.state = "error"
                 self.job.error = str(exc)
 
-    def _on_host(self, host: Any) -> None:
-        del host  # only the count matters for the progress bar
+    def _on_host(self, phase: str, host: Any) -> None:
+        # host is None on the engine's phase-start sentinel: flip the phase
+        # and reset the per-phase counter, count nothing.
+        # A discovered host (discovery pass) bumps BOTH counters — hosts_found
+        # is "hosts discovered", the denominator the service pass later uses.
+        # A service-pass host bumps ONLY hosts_in_phase: the service pass
+        # fingerprints hosts discovery already found, it does not discover
+        # new ones, so hosts_found stays at the discovery total.
         with self._lock:
-            self.job.hosts_found += 1
+            if host is None:
+                self.job.phase = phase
+                self.job.hosts_in_phase = 0
+            elif phase == "services":
+                self.job.phase = phase
+                self.job.hosts_in_phase += 1
+            else:
+                self.job.phase = phase
+                self.job.hosts_found += 1
+                self.job.hosts_in_phase += 1
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -127,6 +150,8 @@ class NetScopeAPI:
                 "state": self.job.state,
                 "target": self.job.target,
                 "hosts_found": self.job.hosts_found,
+                "phase": self.job.phase,
+                "hosts_in_phase": self.job.hosts_in_phase,
                 "scan_id": self.job.scan_id,
                 "error": self.job.error,
                 "duration_seconds": self.job.duration_seconds,

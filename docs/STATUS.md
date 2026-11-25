@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 114 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 119 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -35,10 +35,10 @@ latest one is recorded as acceptance evidence on issue #10.
 - **#35 identity re-key when the MAC arrives** (PR #55, merged `af12dbc` 2026-11-24): `merge_scan` no longer keeps the IP key when a MAC shows up later. An IP-keyed row with no MAC (or the same MAC) re-keys to the MAC and returns `(merged, rekeys)`; `SQLiteStore.save_scan` migrates the row in the same transaction — `devices` parent first, then `device_ports`, `scan_devices` and `device_names` children, then deletes the old parent (order forced by `PRAGMA foreign_keys = ON`). A row that already carries a **different** MAC is treated as a different machine: the host becomes its own device and the stored MAC is never overwritten. 106 tests pass (5 new: 3 in `tests/test_device.py`, 2 in `tests/test_store.py`), ruff clean.
 - **#36 Host header hardening** (PR #56, merged `865dca0` 2026-11-24): `build_app` installs Starlette's `TrustedHostMiddleware` as the outermost layer with `DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1")` plus `extra_hosts`; `__main__.py` appends `NETSCOPE_HOST` (unless `0.0.0.0`/`127.0.0.1`) and the new comma-separated `NETSCOPE_ALLOWED_HOSTS`, and prints the trusted list at startup. A foreign `Host` now gets `400 Invalid host header` before any route runs — including `POST /api/scan`, so DNS rebinding cannot drive the scanner. Verified live: `localhost`/`127.0.0.1:8931` → 200, `evil.example.com`/`10.0.0.5` → 400; with `NETSCOPE_HOST=0.0.0.0 NETSCOPE_ALLOWED_HOSTS="192.168.0.14, atom.local"` those two → 200 and `evil.example.com` still 400. 111 tests pass (5 new in `tests/test_api.py`), ruff clean.
 - **#37 SQLite threading (part 1 of 2)** (PR #57, merged `14d1139` 2026-11-24): the store keeps **one connection per thread** (`threading.local`; `store.conn` is a property) instead of one shared `check_same_thread=False` connection. A shared connection let a request thread read *and commit* the scan thread's open transaction — `set_device_name`'s `commit()` published a half-written `save_scan`, and readers could see a `scans` row with zero `scan_devices` rows. Each connection now sets `foreign_keys`, `journal_mode=WAL` and `busy_timeout` (per-connection pragmas); all writes go through `_write_txn()` (one lock + rollback on failure, so a failed write never leaves an open transaction behind). 114 tests pass (3 new in `tests/test_store.py`, all proven RED against the old code), ruff clean.
-- **#37 progress reporting (part 2 of 2)** — not started: the UI bar is hardcoded `60%` while running (`netscope/api/static/app.js`, `$("progress-bar").style.width`), and `progress()` in `netscope/scanner/engine.py` fires only **after** the second (service) pass, so `hosts_found` jumps 0 → N at the very end instead of counting up during discovery; `/api/scan/status` carries no pass number. (Path corrected in this handoff — an earlier STATUS row said `static/app.js`.)
+- **#37 progress reporting (part 2 of 2)** (branch `hermes/progress-reporting`, PR pending): the scan engine now emits a **phase-aware** progress callback — `ProgressCallback = Callable[[str, HostResult | None], None]` with `PHASE_DISCOVERY`/`PHASE_SERVICES` and a `host is None` **phase-start sentinel** fired before each nmap pass — so the `-sn` discovery pass reports hosts as they are parsed instead of `hosts_found` jumping 0 → N at the very end. `ScanJob` gained in-process `phase` + `hosts_in_phase` (NOT persisted — transient telemetry; the final inventory is already in the store), and `/api/scan/status` now returns `phase` and `hosts_in_phase`. The UI status line reads e.g. `running — pass 1/2 (discovery) — 7 host(s) found`, and the bar is computed by a `barWidth()` helper (discovery fills the left half by elapsed-vs-per-pass-limit; services fills the right half by `hosts_in_phase / hosts_found`) — the old hardcoded `60%` is gone. 119 tests pass (5 new: 3 in `tests/test_scanner_engine.py`, 2 in `tests/test_api.py`, 1 guard in `tests/test_frontend_xss.py`, all proven RED against the old code), ruff clean.
 
 ## In progress
-- **#37 part 2 (real progress reporting)** — not started yet; parked for a fresh session. Branch `hermes/scan-progress` currently holds docs only (this handoff), draft PR pending. Part 1 (threading) is merged to main (`14d1139`), as are #33, #34 (PR #52), the diff-list fix (PR #53), the docs restore (PR #54), #35 re-key (PR #55) and #36 Host allowlist (PR #56).
+- **#37 part 2 (real progress reporting)** — implemented on branch `hermes/progress-reporting` (off main `49cd9fb`), PR pending review. Part 1 (threading) is merged to main (`14d1139`), as are #33, #34 (PR #52), the diff-list fix (PR #53), the docs restore (PR #54), #35 re-key (PR #55) and #36 Host allowlist (PR #56).
 
 ## Handoff state (2026-11-24, session ended on request)
 - `main` = `14d1139`, working tree clean, no open PRs, 114 tests pass, `ruff check .` clean.
@@ -47,7 +47,7 @@ latest one is recorded as acceptance evidence on issue #10.
 - Decide before coding: whether progress lives in the store, in the in-process scan state, or both — and whether the UI shows "pass 1/2 (discovery) — 7 hosts found" or a percentage. Both are open questions for Falco.
 
 ## Next steps (in order, agreed with Falco 2026-11-24)
-1. Finish **#37 part 2** (pass number + live discovery count in `/api/scan/status` and the UI), then **#38** cleanup bundle.
+1. Review/merge **#37 part 2** (branch `hermes/progress-reporting`), then **#38** cleanup bundle.
 2. Name Atom, Apollo, the router etc. in the UI and re-scan to confirm labels (M8 follow-up polish).
 3. Optional later: `nmap --script broadcast-nbname` / mDNS name suggestions (#41).
 4. Docs upkeep: keep README, `docs/architecture.md`, `docs/gotchas.md`, this file and `docs/decisions.md` current in every PR (AGENTS.md rule).
@@ -71,7 +71,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync --extra dev
-uv run pytest                 # 97 passed
+uv run pytest                 # 119 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```

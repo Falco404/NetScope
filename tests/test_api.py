@@ -15,14 +15,19 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class FakeRunner:
-    def __init__(self, block: threading.Event | None = None) -> None:
+    def __init__(self, block=None, block_services=None) -> None:
         self.block = block
+        self.block_services = block_services
         self.calls: list[list[str]] = []
 
     def run(self, args: list[str]) -> str:
         self.calls.append(args)
-        if self.block is not None:
-            self.block.wait(timeout=5)
+        # `block` parks the discovery pass; `block_services` parks the service
+        # pass separately, so a test can observe the scan BETWEEN the two
+        # passes (a single event would unblock both at once).
+        gate = self.block if "-sn" in args else self.block_services
+        if gate is not None:
+            gate.wait(timeout=5)
         name = "nmap_discovery.xml" if "-sn" in args else "nmap_service.xml"
         return (FIXTURES / name).read_text()
 
@@ -30,9 +35,10 @@ class FakeRunner:
         return True
 
 
-def make_client(tmp_path, block=None, subnet=None, extra_hosts=()):
+def make_client(tmp_path, block=None, block_services=None, subnet=None, extra_hosts=()):
     store = SQLiteStore(tmp_path / "test.db")
-    api = NetScopeAPI(store, NmapScanner(FakeRunner(block)), subnet_fn=lambda: subnet)
+    scanner = NmapScanner(FakeRunner(block, block_services))
+    api = NetScopeAPI(store, scanner, subnet_fn=lambda: subnet)
     # TestClient sends Host: testserver, so the harness must allow it explicitly
     # (build_app allows localhost/127.0.0.1 by default; extras are appended).
     client = TestClient(build_app(api, extra_hosts=("testserver",) + tuple(extra_hosts)))
@@ -229,6 +235,55 @@ def test_status_reports_elapsed_and_limit(tmp_path):
     block.set()
     assert wait_done(api)["state"] == "done"
     assert client.get("/api/scan/status").json()["elapsed_seconds"] is None
+    store.close()
+
+
+def test_status_reports_phase_during_scan(tmp_path):
+    """#37: while a scan runs, /api/scan/status must say WHICH pass is
+    running and how many hosts that pass has found — the UI cannot show
+    honest progress from a bare total that only moves at the very end."""
+    block = threading.Event()
+    block_services = threading.Event()
+    client, api, store = make_client(tmp_path, block=block, block_services=block_services)
+    client.post("/api/scan", json={"target": "192.168.1.0/24"})
+
+    # The fake runner parks the discovery pass: phase is discovery, nothing
+    # found yet.
+    running = client.get("/api/scan/status").json()
+    assert running["state"] == "running"
+    assert running["phase"] == "discovery"
+    assert running["hosts_found"] == 0
+    assert running["hosts_in_phase"] == 0
+
+    # Let discovery finish; the scan parks inside the (still-blocked) service
+    # pass, so we can observe the hand-off between passes.
+    block.set()
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        running = client.get("/api/scan/status").json()
+        if running["phase"] == "services":
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("scan never reached the services phase")
+    assert running["state"] == "running"
+    assert running["hosts_found"] == 2  # discovery found both hosts
+    assert running["hosts_in_phase"] == 0  # service pass has not reported yet
+
+    block_services.set()
+    status = wait_done(api)
+    assert status["state"] == "done"
+    assert status["hosts_found"] == 2  # discovery total; services pass reuses it
+    assert status["hosts_in_phase"] == 2  # both hosts fingerprinted
+    store.close()
+
+
+def test_status_phase_is_null_when_idle(tmp_path):
+    client, _, store = make_client(tmp_path)
+    status = client.get("/api/scan/status").json()
+    assert status["state"] == "idle"
+    assert status["phase"] is None
+    assert status["hosts_in_phase"] == 0
     store.close()
 
 
