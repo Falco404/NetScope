@@ -65,3 +65,35 @@ def test_ports_column_distinguishes_not_probed_from_nothing_open():
     assert 'd.ports_probed === false ? "not probed"' in src, (
         "an empty Open ports cell after a quick scan must read 'not probed'"
     )
+
+
+def test_device_panel_has_a_deep_scan_button():
+    html = _read("index.html")
+    assert 'id="detail-scan"' in html and "Deep scan this device" in html
+    # It lives in the detail aside, next to the manual-name controls.
+    aside = html[html.index('<aside id="detail"') :]
+    assert 'id="detail-scan"' in aside
+
+
+def test_device_scan_posts_to_the_device_endpoint_by_identity():
+    """#74: the UI sends the identity; the server resolves the current IP.
+    Building an address in JavaScript would use a stale one after DHCP."""
+    src = _read("app.js")
+    target = "/api/devices/${encodeURIComponent(detailIdentity)}/scan"
+    assert f"await api(`{target}`, {{ method: \"POST\" }})" in src
+    assert 'detailIp = d.ip;' in src, "the running status line needs the device IP"
+
+
+def test_device_scan_button_is_disabled_while_any_scan_runs():
+    src = _read("app.js")
+    start = src.index("function setScanning(")
+    body = src[start : src.index("}", start)]
+    assert '$("detail-scan").disabled = busy' in body
+
+
+def test_open_detail_is_refreshed_after_a_scan():
+    """#74: a per-device scan is started from the detail panel, so finishing
+    must re-render that panel — the device table alone would leave stale
+    ports inside the open dialog."""
+    src = _read("app.js")
+    assert 'if (detailIdentity && !$("detail").hidden) await openDetail(detailIdentity);' in src
