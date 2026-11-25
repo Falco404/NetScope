@@ -21,9 +21,14 @@ winget install astral-sh.uv          # uv
 winget install nmap                  # or run the installer from nmap.org
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync --extra dev                  # installs the project + dev tools (pytest, ruff)
+uv sync                  # installs the project + dev tools (pytest, ruff)
 uv run pytest                        # verify: all tests pass, no network needed
 ```
+
+`uv sync` installs pytest and ruff as well — they are a default dependency
+group. Older instructions said `uv sync --extra dev`; that extra no longer
+exists, and worse, a plain `uv sync` against the old layout *removed* the dev
+tools from an environment that already had them.
 
 ### Linux (Fedora / Debian / DietPi)
 
@@ -34,7 +39,7 @@ sudo dnf install nmap                             # Fedora
 
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync --extra dev
+uv sync
 uv run pytest
 ```
 
@@ -44,7 +49,7 @@ uv run pytest
 brew install uv nmap    # uv downloads a Python 3.12+ interpreter itself if the system Python is older
 git clone https://github.com/Falco404/NetScope.git
 cd NetScope
-uv sync --extra dev
+uv sync
 uv run pytest
 ```
 

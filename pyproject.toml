@@ -5,7 +5,11 @@ description = "Local network discovery and mapping tool (private ranges only)"
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
 
-[project.optional-dependencies]
+[dependency-groups]
+# Synced by plain `uv sync`. Do NOT move these to [project.optional-dependencies]:
+# `uv sync` is declarative, so an opt-in extra means a plain `uv sync` *uninstalls*
+# pytest and ruff from a working environment (uv then fails `uv run pytest` with
+# "Failed to spawn: pytest").
 dev = ["pytest>=8", "ruff>=0.9", "httpx>=0.27"]
 
 [build-system]
