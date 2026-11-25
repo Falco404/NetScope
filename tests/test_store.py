@@ -469,3 +469,63 @@ def test_each_thread_gets_its_own_connection(tmp_path):
     thread.join()
     assert len(ids) == 1 and ids[0] != id(store.conn)
     assert store.conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def sinkhole_scan() -> ScanResult:
+    """Two distinct machines whose reverse-DNS name is identical.
+
+    On Falco's LAN nmap's PTR lookup returned `blocked.local` for nine
+    different IPs (the local resolver answers every PTR query with the same
+    name — a DNS sinkhole), so the Devices table showed `blocked.local`
+    nine times and the diff said `blocked.local appeared` twice.
+    """
+    return ScanResult(
+        target="192.168.0.0/24",
+        hosts=(
+            HostResult(
+                ip="192.168.0.5",
+                up=True,
+                hostname="blocked.local",
+                mac_vendor="Google",
+                ports=(PortResult(port=8008, protocol="tcp", state="open"),),
+            ),
+            HostResult(
+                ip="192.168.0.6",
+                up=True,
+                hostname="blocked.local",
+                mac_vendor="Frontier Silicon",
+                ports=(PortResult(port=80, protocol="tcp", state="open"),),
+            ),
+        ),
+    )
+
+
+def test_ambiguous_hostname_is_not_used_as_label(store):
+    """A hostname shared by several devices cannot label any of them: the
+    display must fall through to vendor+IP / bare IP instead of showing
+    `blocked.local` for every row."""
+    store.save_scan(sinkhole_scan(), {}, ts=TS1)
+    devs = {d.identity: d for d in store.load_devices()}
+    assert set(devs) == {"192.168.0.5", "192.168.0.6"}
+    for d in devs.values():
+        assert d.hostname is None, "shared hostname must not survive as a label"
+    assert devs["192.168.0.5"].display_name == "Google device (192.168.0.5)"
+    assert devs["192.168.0.6"].display_name == "Frontier Silicon device (192.168.0.6)"
+
+
+def test_unique_hostname_still_labels(store):
+    """Regression guard: a PTR name belonging to exactly one device is
+    still the best label (atom/apollo in the service fixture)."""
+    store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+    devs = store.load_devices()
+    assert {d.display_name for d in devs} == {"atom", "apollo"}
+    assert {d.hostname for d in devs} == {"atom", "apollo"}
+
+
+def test_manual_name_beats_ambiguous_hostname(store):
+    """A deliberate label survives even when the hostname is suppressed."""
+    store.save_scan(sinkhole_scan(), {}, ts=TS1)
+    store.set_device_name("192.168.0.5", "NAS")
+    devs = {d.identity: d for d in store.load_devices()}
+    assert devs["192.168.0.5"].display_name == "NAS"
+    assert devs["192.168.0.6"].display_name == "Frontier Silicon device (192.168.0.6)"

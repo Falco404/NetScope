@@ -11,9 +11,10 @@ import ipaddress
 import os
 import sqlite3
 import threading
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from netscope.device import Device, merge_scan
@@ -21,6 +22,27 @@ from netscope.scanner.models import ScanResult
 
 SCHEMA_VERSION = 3
 DEFAULT_DB_PATH = "netscope.db"
+
+
+def _suppress_ambiguous_hostnames(devices: list[Device]) -> list[Device]:
+    """Drop hostnames that several devices share (#38, `blocked.local`).
+
+    nmap's reverse-DNS (PTR) name is only a label when it identifies ONE
+    machine. On Falco's LAN the local resolver answered every PTR query with
+    `blocked.local` (a DNS sinkhole — e.g. a Pi-hole on Atom), so nine
+    devices carried the same "hostname": the Devices table showed it nine
+    times and the diff said `blocked.local appeared` twice with no way to
+    tell which host. A name shared by two identities is a resolver artifact,
+    never a machine name, so it is suppressed at read time and
+    ``display_name`` falls through its chain to vendor+IP / bare IP.
+    The DB row keeps the raw hostname (nothing is rewritten), so a later
+    scan that resolves a unique name still wins via the merge COALESCE.
+    """
+    counts = Counter(d.hostname for d in devices if d.hostname)
+    return [
+        replace(d, hostname=None) if d.hostname and counts[d.hostname] > 1 else d
+        for d in devices
+    ]
 
 _SCHEMA = """
 CREATE TABLE scans (
@@ -338,19 +360,21 @@ class SQLiteStore:
             ORDER BY d.identity
             """
         ).fetchall()
-        return [
-            Device(
-                identity=r[0],
-                ip=r[1],
-                hostname=r[2],
-                mac=r[3],
-                vendor=r[4],
-                os_guess=r[5],
-                last_seen_scan=r[6],
-                name=r[7],
-            )
-            for r in rows
-        ]
+        return _suppress_ambiguous_hostnames(
+            [
+                Device(
+                    identity=r[0],
+                    ip=r[1],
+                    hostname=r[2],
+                    mac=r[3],
+                    vendor=r[4],
+                    os_guess=r[5],
+                    last_seen_scan=r[6],
+                    name=r[7],
+                )
+                for r in rows
+            ]
+        )
 
     def devices_in_scan(self, scan_id: int) -> list[Device]:
         """Devices sighted (up) in this scan — ports are irrelevant (#31)."""
@@ -365,18 +389,20 @@ class SQLiteStore:
             (scan_id,),
         ).fetchall()
 
-        return [
-            Device(
-                identity=r[0],
-                ip=r[1],
-                hostname=r[2],
-                mac=r[3],
-                vendor=r[4],
-                os_guess=r[5],
-                name=r[6],
-            )
-            for r in rows
-        ]
+        return _suppress_ambiguous_hostnames(
+            [
+                Device(
+                    identity=r[0],
+                    ip=r[1],
+                    hostname=r[2],
+                    mac=r[3],
+                    vendor=r[4],
+                    os_guess=r[5],
+                    name=r[6],
+                )
+                for r in rows
+            ]
+        )
 
     def scan_ports(self, scan_id: int) -> dict[str, frozenset[tuple[int, str]]]:
         """identity -> set of (port, protocol) open in this scan."""
