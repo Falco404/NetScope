@@ -3,9 +3,9 @@
 from pathlib import Path
 
 from netscope.device import Device, device_from_host, merge_scan
-from netscope.scanner.models import PortResult
+from netscope.scanner.models import HostResult, PortResult
 from netscope.scanner.parser import parse_nmap_xml
-from netscope.vendor_registry import vendor_from_mac
+from netscope.vendor_registry import OUI_VENDORS, vendor_from_mac
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -35,9 +35,48 @@ def test_identity_falls_back_to_ip_without_mac():
 
 
 def test_vendor_registry_fallback_and_normalization():
-    assert vendor_from_mac("3c:07:59:aa:bb:cc") == "Intel"  # lowercase ok
-    assert vendor_from_mac("3C-07-59-AA-BB-CC") == "Intel"  # dashes ok
+    assert vendor_from_mac("b8:27:eb:11:22:33") == "Raspberry Pi Foundation"  # lowercase ok
+    assert vendor_from_mac("B8-27-EB-11-22-33") == "Raspberry Pi Foundation"  # dashes ok
     assert vendor_from_mac("FF:FF:FF:FF:FF:FF") is None  # unknown
+
+
+def test_shipped_registry_contains_no_lab_only_prefixes():
+    """#38: the table shipped `AA:BB:CC -> MicroStar Intl`, but that prefix only
+    exists in our recorded fixtures and the vendor name was made up for them.
+    A real device whose MAC happens to start with AA:BB:CC would be labelled
+    with a company that never manufactured it."""
+    assert "AA:BB:CC" not in OUI_VENDORS
+    assert vendor_from_mac("AA:BB:CC:DD:EE:01") is None
+
+
+def test_shipped_prefixes_match_the_oui_registrations():
+    """Each shipped prefix must resolve to the company the IEEE OUI registry
+    actually assigns it (checked against uic.io on 2026-11-25). Three of the
+    old entries did not: `00:0C:AC` is Citizen Watch, not Dell; `A4:50:55` is
+    BUSWARE.DE, not Apple; `E0:37:BF` is WNC Corporation, not Microsoft."""
+    assert vendor_from_mac("00:0C:AC:11:22:33") == "Citizen Watch Co., Ltd."
+    assert vendor_from_mac("A4:50:55:11:22:33") == "BUSWARE.DE"
+    assert vendor_from_mac("B8:27:EB:11:22:33") == "Raspberry Pi Foundation"
+    assert vendor_from_mac("DC:A6:32:11:22:33") == "Raspberry Pi Trading Ltd"
+    assert vendor_from_mac("E0:37:BF:11:22:33") == "WNC Corporation"
+
+
+def test_unverified_prefixes_are_not_shipped():
+    """`3C:07:59` was labelled Intel but has no OUI registration in either
+    source checked, so it must not ship at all: an unverified prefix is worse
+    than no prefix."""
+    assert "3C:07:59" not in OUI_VENDORS
+    assert vendor_from_mac("3C:07:59:AA:BB:CC") is None
+
+
+def test_device_without_vendor_attribute_gets_no_invented_label():
+    """User-visible consequence: a MAC-only host with no `vendor=` attribute
+    must not be labelled with a fake vendor; the display name falls through
+    to the bare IP."""
+    host = HostResult(ip="192.168.1.9", up=True, mac="AA:BB:CC:DD:EE:01")
+    device = device_from_host(host)
+    assert device.vendor is None
+    assert device.display_name == "192.168.1.9"
 
 
 def test_dedup_across_two_scans():
