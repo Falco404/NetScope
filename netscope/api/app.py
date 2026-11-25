@@ -272,6 +272,8 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
             if not scans:
                 raise HTTPException(status_code=404, detail="no scans stored")
             to_id = scans[0].id
+        elif not api.store.scan_exists(to_id):
+            raise HTTPException(status_code=404, detail=f"unknown scan id: {to_id}")
         if from_id is None:
             # Default previous scan must share the target (#31): comparing a
             # single-IP scan against a /24 scan of unrelated devices is noise.
@@ -282,6 +284,8 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
                     status_code=404, detail="no earlier scan with the same target to compare"
                 )
             from_id = prev[0]
+        elif not api.store.scan_exists(from_id):
+            raise HTTPException(status_code=404, detail=f"unknown scan id: {from_id}")
         d = api.store.diff_scans(from_id, to_id)
         names = {x.identity: x.display_name for x in api.store.load_devices()}
         return {

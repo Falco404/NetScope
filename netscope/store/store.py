@@ -435,6 +435,15 @@ class SQLiteStore:
         row = self.conn.execute("SELECT target FROM scans WHERE id = ?", (scan_id,)).fetchone()
         return row[0] if row is not None else None
 
+    def scan_exists(self, scan_id: int) -> bool:
+        """Is this scan id stored at all? (#38: the API must tell "no such
+        scan" apart from "nothing changed" — an unknown id otherwise diffs
+        two empty sighting sets and answers 200 with three empty lists.)"""
+        return (
+            self.conn.execute("SELECT 1 FROM scans WHERE id = ?", (scan_id,)).fetchone()
+            is not None
+        )
+
     def latest_scan_covering(self, ip: str) -> int | None:
         """Newest stored scan whose target contains this IP (None if none).
 

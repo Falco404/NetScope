@@ -529,3 +529,12 @@ def test_manual_name_beats_ambiguous_hostname(store):
     devs = {d.identity: d for d in store.load_devices()}
     assert devs["192.168.0.5"].display_name == "NAS"
     assert devs["192.168.0.6"].display_name == "Frontier Silicon device (192.168.0.6)"
+
+
+def test_scan_exists(tmp_path):
+    """#38: the API needs to tell "no such scan" apart from "nothing changed"."""
+    store = SQLiteStore(tmp_path / "exists.db")
+    assert not store.scan_exists(1)
+    store.save_scan(fixture_scan("nmap_discovery.xml"), {}, ts=TS1)
+    assert store.scan_exists(1)
+    assert not store.scan_exists(2)

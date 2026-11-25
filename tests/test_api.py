@@ -406,3 +406,27 @@ def test_diff_lines_are_unambiguous_with_shared_hostname(tmp_path):
     assert len(names) == 2
     assert "blocked.local" not in names, f"diff lines must not repeat an ambiguous name: {names}"
     assert len(set(names)) == 2, f"diff lines must identify distinct hosts: {names}"
+
+
+def test_diff_unknown_scan_id_returns_404(tmp_path):
+    """#38: an id that does not exist compared two empty sighting sets and
+    answered 200 with "nothing changed" — a typo'd id silently lies."""
+    client, api, store = make_client(tmp_path)
+    store.save_scan(_sinkhole_scan(("192.168.0.5",)), {}, ts="2026-11-25T09:00:00+00:00")
+    real = store.list_scans()[0].id
+    for bad in ({"from_id": real, "to_id": 999}, {"from_id": 999, "to_id": real}):
+        res = client.get("/api/diff", params=bad)
+        body = res.json()
+        assert res.status_code == 404, f"unknown scan id must 404, got {res.status_code}: {body}"
+        assert "999" in body["detail"], body["detail"]
+
+
+def test_diff_unknown_to_id_without_from_id_names_the_id(tmp_path):
+    """The old code did 404 here, but blamed the *comparison partner*
+    ("no earlier scan with the same target to compare") when the caller's
+    typo'd `to_id` was the actual problem."""
+    client, api, store = make_client(tmp_path)
+    store.save_scan(_sinkhole_scan(("192.168.0.5",)), {}, ts="2026-11-25T09:00:00+00:00")
+    res = client.get("/api/diff", params={"to_id": 999})
+    assert res.status_code == 404
+    assert "999" in res.json()["detail"], res.json()["detail"]
