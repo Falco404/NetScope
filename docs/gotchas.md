@@ -65,6 +65,14 @@ Written for the next session. Each one cost real debugging time.
   `test_replace_children_spreads_array_arguments` walks each `replaceChildren(`
   call in app.js (paren-balanced) and requires `...`-spread, a direct `el(...)`,
   or an empty clear-call (`tbody.replaceChildren()` is legitimate).
+- **Decide UI state server-side when it can be derived from data.** The #34 OS
+  hint is a sentence, but *whether* to show it is a fact about the inventory
+  ("devices exist and none has an `os_guess`"), so `GET /api/os-hint` decides and
+  app.js only sets `textContent` + `hidden` (guards in
+  `tests/test_frontend_os_hint.py`). This keeps the "frontend is dumb" rule and
+  means the behaviour is covered by a real API test instead of a JS text grep.
+  `loadOsHint()` swallows its own errors: a failed hint must never stop the
+  device table from rendering.
 
 ## Server & Host header (#36)
 - **A foreign `Host` header must be rejected, and the test harness must not hide that.** `build_app` installs Starlette's `TrustedHostMiddleware`; it compares the hostname **with the port stripped and case-insensitively**, so allowing `127.0.0.1` also allows `127.0.0.1:8000`. Mismatch → `400 Invalid host header` before any route runs (GET *and* `POST /api/scan`).
@@ -83,7 +91,7 @@ Written for the next session. Each one cost real debugging time.
 ## Tests & CI
 - **CI runs the suite on Linux *and* Windows (3.12/3.13 on each); Falco also runs it on Windows.** That is what the Windows job is for — it exists because a Windows-only failure (`nmap-mac-prefixes` leak) once passed here and failed on his box. Never use `false`, `sleep`, or other POSIX binaries in tests. For exit codes use `sys.executable` with `-c "raise SystemExit(3)"` and assert `"exit 3"`.
 - **Expected harmless warning:** `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` — ignore it, don't chase it.
-- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) → 111 (#36 Host allowlist: 5 API tests) → 114 (#37 threading: 3 store race/connection tests) → 124 (#38 hostname ambiguity) → 127 (`/api/diff` unknown ids) → 137 (env-var validation) → 141 (vendor registry data) → 149 (nmap `nmap-mac-prefixes` loader) → 152 (packaging guard: `uv sync` must keep the dev tools) → 153 (registry test isolation) → 156 (Windows CI matrix guard, 3 tests) → 157 (LICENSE/packaging agreement guard) → 162 (real home-LAN fixture: 2 parser + 3 redaction-script tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
+- **Test count is a good health signal**: 1 → 37 → 46 → 52 → 59 → 65 → 68 → 70 → 71 → 78 → 83 → 87 → 89 → 96 (#31) → 97 (#48 ParseError fixture) → 101 (#52 probe + #53 guard tests) → 106 (#35 re-key: 3 merge_scan + 2 store migration tests) → 111 (#36 Host allowlist: 5 API tests) → 114 (#37 threading: 3 store race/connection tests) → 124 (#38 hostname ambiguity) → 127 (`/api/diff` unknown ids) → 137 (env-var validation) → 141 (vendor registry data) → 149 (nmap `nmap-mac-prefixes` loader) → 152 (packaging guard: `uv sync` must keep the dev tools) → 153 (registry test isolation) → 156 (Windows CI matrix guard, 3 tests) → 157 (LICENSE/packaging agreement guard) → 162 (real home-LAN fixture: 2 parser + 3 redaction-script tests) → 168 (#34 OS hint: 3 API + 3 frontend guard tests) as milestones landed; a sudden drop means a fixture or parser change broke coverage.
 - In this container use `~/.local/bin/uv run pytest` (Python 3.14); `uv sync` first if deps are missing — pytest/ruff are a default dependency group, so plain `uv sync` installs them. Never `uv sync --extra dev`: that extra no longer exists, and against the old layout it made plain `uv sync` *remove* the dev tools.
 
 ## Merging workflow
@@ -94,7 +102,7 @@ Written for the next session. Each one cost real debugging time.
 ## gh & git plumbing
 - **`git push` can fail with `remote: Internal Server Error` / `[remote rejected]`.** That is a transient GitHub error, not a repo problem: the local commit is fine, so wait ~45s and push again. Never re-commit "because the push failed".
 - **`gh pr create` / `gh issue comment` often print no URL** — the output is replaced by the `gh event listen` preview hint. Verify the write landed instead: `gh pr list --json number,title,url` and `gh issue view N --json state,comments --jq '{state, last: (.comments[-1].body | .[0:80])}'`.
-- **`pytest -q` prints no summary line** (only the progress dots), so you cannot read the test count for PR evidence from it. Run pytest **without** `-q` when you need `N passed, M deselected in Xs` pasted into a PR body.
+- **Don't add `-q` on the command line: `addopts = "-q"` is already in `pyproject.toml`.** Two `-q` flags mean verbosity −2 (pytest 9.2), and **that** is what prints no final summary line — only the progress dots. A plain `uv run pytest` *does* end with `168 passed, 1 warning in 6.00s`; `uv run pytest -q` ends with silence, which is exactly the "no count for the PR body" trap. If you want file names *and* the summary, override the option instead: `uv run pytest -o addopts=""`. Always judge a run by its exit code (write output to a file and echo `$?`), never by an absence of text.
 - **`ruff format --check netscope tests` always reports 2 files** (`tests/test_scanner_parser.py`, `tests/test_target_guard.py`) — pre-existing debt on `main`. Check only the files you touched (`ruff format --check <your files>`) and do not sweep the others.
 - **A PR that covers half an issue must not use a closing keyword.** For #37 part 1 the body says "Part of #37" and the issue stays OPEN; link progress with an `gh issue comment` instead.
 

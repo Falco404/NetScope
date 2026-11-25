@@ -40,6 +40,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .progress { flex: 1; min-width: 120px; height: 8px; background: #0d1117; border-radius: 4px; overflow: hidden; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 #scan-status { color: var(--muted); font-size: 0.85rem; }
+#os-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
 
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; }

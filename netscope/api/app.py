@@ -35,6 +35,16 @@ STATIC_DIR = Path(__file__).parent / "static"
 # "Invalid host header" on a mismatch.
 DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
 
+# #34 (closed) optional polish: shown when the inventory has devices but not a
+# single OS guess, i.e. the OS column reads empty. Root is required for -O on
+# Linux/macOS (verified on Apollo); on Windows -O works without admin via
+# Npcap, but when it silently yields nothing, admin is the reliable fallback.
+# Wording stays honest about the third case: nmap simply not recognising a host.
+OS_HINT = (
+    "OS column is empty — OS detection (-O) needs admin on Windows or root on "
+    "Linux/macOS, and some devices cannot be fingerprinted at all."
+)
+
 
 @dataclass
 class ScanJob:
@@ -214,6 +224,21 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
                 }
             )
         return out
+
+    @app.get("/api/os-hint")
+    def os_hint() -> dict[str, Any]:
+        """#34 polish: explain an empty OS column instead of leaving it blank.
+
+        Derived from stored data on purpose — no schema change and no new
+        per-scan column: "the OS column would be empty for this inventory"
+        is exactly "there are devices and none of them has an OS guess".
+        Persisting nmap's `os_detection_available` per scan was rejected as a
+        schema bump for a sentence (docs/decisions.md, 2026-11-25).
+        """
+        devices = api.store.load_devices()
+        if not devices or any(d.os_guess for d in devices):
+            return {"hint": None}
+        return {"hint": OS_HINT}
 
     @app.get("/api/devices/{identity}")
     def device_detail(identity: str) -> dict[str, Any]:

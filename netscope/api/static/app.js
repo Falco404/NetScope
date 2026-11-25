@@ -59,9 +59,23 @@ function renderDevices() {
   }
 }
 
+async function loadOsHint() {
+  // #34 polish: the SERVER decides whether the OS column is empty (it owns
+  // the inventory); the frontend only renders the sentence. A failed hint
+  // must never break the device list, so errors are swallowed.
+  try {
+    const { hint } = await api("/api/os-hint");
+    $("os-hint").textContent = hint ?? "";
+    $("os-hint").hidden = !hint;
+  } catch {
+    $("os-hint").hidden = true;
+  }
+}
+
 async function loadAll() {
   devices = await api("/api/devices");
   renderDevices();
+  await loadOsHint();
   const scans = await api("/api/scans");
   $("scans").replaceChildren(
     ...(scans.length
