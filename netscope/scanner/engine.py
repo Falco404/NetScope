@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 
 from netscope.mdns import NameResolver
+from netscope.netbios import NetbiosNameResolver
 from netscope.scanner.models import HostResult, ScanResult
 from netscope.scanner.parser import parse_nmap_xml
 from netscope.scanner.runner import NmapRunner
@@ -58,11 +59,19 @@ class NmapScanner:
     target never reaches nmap.
     """
 
-    def __init__(self, runner: NmapRunner, resolver: NameResolver | None = None) -> None:
+    def __init__(
+        self,
+        runner: NmapRunner,
+        resolver: NameResolver | None = None,
+        netbios: NetbiosNameResolver | None = None,
+    ) -> None:
         self.runner = runner
-        # #41: optional mDNS name source. None keeps every existing caller (and
-        # every test) on the pure-nmap behaviour.
+        # #41: optional name sources. None keeps every existing caller (and
+        # every test) on the pure-nmap behaviour. mDNS is host-agnostic and
+        # runs in the background; NetBIOS needs the discovered addresses, so
+        # it runs after the discovery pass.
         self.resolver = resolver
+        self.netbios = netbios
 
     def scan(
         self,
@@ -87,10 +96,15 @@ class NmapScanner:
             for host in discovered_hosts:
                 progress(PHASE_DISCOVERY, host)
 
+        # NetBIOS needs the addresses, so it starts once discovery is parsed;
+        # its queries are parallel and short (1 s), so it costs little.
+        netbios_names = self._netbios_names([h.ip for h in discovered_hosts])
+
         if not deep:
             # Quick scan: discovery IS the result. No probe, no service pass —
             # `probe_os()` would itself run nmap and cost seconds.
-            hosts = self._with_mdns_names(discovered_hosts, lookup.names())
+            names = {**netbios_names, **lookup.names()}  # mDNS wins on a clash
+            hosts = self._with_names(tuple(discovered_hosts), names)
             return ScanResult(target=target_str, hosts=hosts, mode=mode)
 
         discovered = [h.ip for h in discovered_hosts]
@@ -117,19 +131,32 @@ class NmapScanner:
 
         return ScanResult(
             target=target_str,
-            hosts=self._with_mdns_names(result.hosts, lookup.names()),
+            hosts=self._with_names(result.hosts, {**netbios_names, **lookup.names()}),
             os_detection_available=os_available,
             mode=mode,
         )
 
-    def _with_mdns_names(
+    def _netbios_names(self, ips: list[str]) -> dict[str, str]:
+        """NetBIOS workstation names for the discovered hosts (#41 part 2).
+
+        Best-effort like every other name source: a blocked UDP 137, a timeout
+        or a device answering nonsense yields no names, never an error.
+        """
+        if self.netbios is None or not ips:
+            return {}
+        try:
+            return dict(self.netbios.names_by_ip(ips))
+        except Exception:  # noqa: BLE001 - names must never fail a scan
+            return {}
+
+    def _with_names(
         self,
         hosts: tuple[HostResult, ...],
         names: Mapping[str, str],
     ) -> tuple[HostResult, ...]:
-        """Fill hostnames from mDNS where PTR gave nothing useful (#41).
+        """Fill hostnames from mDNS/NetBIOS where PTR gave nothing useful (#41).
 
-        Two cases use the mDNS name:
+        Two cases use the learned name:
 
         * the host has no PTR name at all;
         * the PTR name is shared by several hosts in THIS scan — that is the
@@ -138,7 +165,7 @@ class NmapScanner:
           the device would otherwise show as "vendor device (ip)".
 
         A unique PTR name always wins: it is what the network says, and
-        overwriting it with a self-reported `.local` name would be a downgrade.
+        overwriting it with a self-reported name would be a downgrade.
         """
         counts = Counter(h.hostname for h in hosts if h.hostname)
         out: list[HostResult] = []

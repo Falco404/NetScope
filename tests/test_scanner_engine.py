@@ -271,3 +271,64 @@ def test_no_resolver_means_no_name_lookup_at_all():
     runner = fake_runner()
     result = NmapScanner(runner).scan("192.168.1.0/24")
     assert [h.hostname for h in result.hosts] == ["atom", "apollo"]
+
+
+class FakeNetbios:
+    """Stands in for netscope.netbios.NetbiosNameResolver (#41 part 2)."""
+
+    def __init__(self, names: dict[str, str] | None = None, fail: bool = False) -> None:
+        self.names = names or {}
+        self.fail = fail
+        self.asked: list[list[str]] = []
+
+    def names_by_ip(self, ips) -> dict[str, str]:
+        self.asked.append(list(ips))
+        if self.fail:
+            raise RuntimeError("UDP 137 blocked")
+        return self.names
+
+
+def test_netbios_names_fill_missing_hostnames():
+    """The discovery fixture has no PTR names, so NetBIOS supplies them."""
+    runner = fake_runner()
+    netbios = FakeNetbios({"192.168.1.20": "DESKTOP-ABC123"})
+    result = NmapScanner(runner, netbios=netbios).scan("192.168.1.0/24", deep=False)
+
+    assert [h.hostname for h in result.hosts] == [None, "DESKTOP-ABC123"]
+    # Only the hosts discovery found are queried — never the whole subnet.
+    assert netbios.asked == [["192.168.1.10", "192.168.1.20"]]
+
+
+def test_netbios_never_overrides_a_unique_ptr_name():
+    runner = fake_runner()
+    netbios = FakeNetbios({"192.168.1.10": "WRONGBOX", "192.168.1.20": "WRONGTOO"})
+    result = NmapScanner(runner, netbios=netbios).scan("192.168.1.0/24")
+
+    assert [h.hostname for h in result.hosts] == ["atom", "apollo"]
+
+
+def test_mdns_beats_netbios_for_the_same_host():
+    """Priority is PTR (unique) > mDNS > NetBIOS: mDNS names are the plan's
+    primary source, NetBIOS only fills what is still empty."""
+    runner = fake_runner()
+    mdns = FakeResolver({"192.168.1.20": "apollo.local"})
+    netbios = FakeNetbios({"192.168.1.20": "DESKTOP-ABC123"})
+    result = NmapScanner(runner, resolver=mdns, netbios=netbios).scan("192.168.1.0/24", deep=False)
+
+    assert [h.hostname for h in result.hosts] == [None, "apollo.local"]
+
+
+def test_a_failing_netbios_lookup_never_fails_the_scan():
+    runner = fake_runner()
+    result = NmapScanner(runner, netbios=FakeNetbios(fail=True)).scan("192.168.1.0/24")
+
+    assert result.mode == "deep"
+    assert [h.hostname for h in result.hosts] == ["atom", "apollo"]
+    assert len(runner.calls) == 2
+
+
+def test_netbios_is_not_consulted_when_not_configured():
+    runner = fake_runner()
+    # Default construction: pure nmap, no name sources at all.
+    result = NmapScanner(runner).scan("192.168.1.0/24", deep=False)
+    assert [h.hostname for h in result.hosts] == [None, None]
