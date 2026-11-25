@@ -6,7 +6,7 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is a bugfix backlog from a Claude
-Code review (issues #30–#38; ideas #39–#43). 156 tests pass, ruff clean.
+Code review (issues #30–#38; ideas #39–#43). 157 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -47,28 +47,27 @@ latest one is recorded as acceptance evidence on issue #10.
 
 - **#38 env-var validation** (PR #62, merged `4e29467` 2026-11-25): `NETSCOPE_PORT=8000abc` used to die with a bare `ValueError: invalid literal for int() with base 10: '8000abc'` traceback that never named the variable. `parse_port` / `parse_timeout` (new, in `netscope/__main__.py`) now reject bad values with a message naming the variable, the bad value and the expected shape, and `main()` turns that into `Bad configuration: NETSCOPE_PORT must be an integer port number (e.g. 8000), got '8000abc'` with exit 1 — no traceback. Range checks too: port must be 1–65535, timeout must be finite and > 0 (`0` would kill nmap instantly, `nan`/`inf` would never time a scan out). Both are now parsed **before** `SQLiteStore()` exists, fixing a second bug found on the way: `NETSCOPE_NMAP_TIMEOUT=abc` used to create a 49 KB `netscope.db` in the current directory and then crash, leaving the file behind. 137 tests pass (10 new in `tests/test_main_env.py`, all proven RED against the old code), ruff clean.
 - **#38 Windows CI job** (branch `hermes/windows-ci-matrix`, this PR): `.github/workflows/tests.yml` now runs the suite on **ubuntu-latest and windows-latest × Python 3.12/3.13** (`runs-on: ${{ matrix.os }}`; the job name shows OS + version), so a Windows-only failure cannot reach Falco's machine again without CI seeing it first. `tests/test_ci.py` (3 guard tests, proven RED against the old workflow) pins the OS matrix, the `matrix.os` lookup and the install/lint/test steps. 156 tests pass, ruff clean.
+- **#38 LICENSE (MIT)** (branch `hermes/mit-license`, this PR): added the MIT `LICENSE` file (holder: Falco404), `license = "MIT"` + `license-files = ["LICENSE"]` + the `License :: OSI Approved :: MIT License` classifier in `pyproject.toml`, and a License section in the README. Verified in the built wheel: `License-Expression: MIT`, `License-File: LICENSE`, `netscope-0.1.0.dist-info/licenses/LICENSE`. `test_license_file_and_packaging_metadata_agree` (1 test, proven RED before the file existed) keeps the file and the metadata from drifting. 157 tests pass, ruff clean.
 
 ## In progress
-- **#38 Windows CI job** — branch `hermes/windows-ci-matrix` (this PR). Nothing else is in flight. #38 stays open with **two items left**: `LICENSE` (Falco chose MIT 2026-11-25 — file not written yet) and the stale `docs/architecture.md` header/milestone list. PR #64 and its branch are merged/closed; #37 (both halves), #33–#36 and #63 are all merged.
+- **#38 LICENSE** — branch `hermes/mit-license` (this PR). Nothing else is in flight. #38 stays open with **one item left**: the stale `docs/architecture.md` header/milestone list. PR #64, #65 and #66 are all merged.
 
 ## Handoff state (2026-11-25, updated after PR #65 merged)
-- `main` = `4f64fb7` (PR #65 docs handoff merged; branch deleted). Its doc hunks were verified landed (`git diff caabc6d main` is empty). Working tree clean before starting `hermes/windows-ci-matrix`.
-- Open issues: **#38** (two items left after this PR, itemised below) and the ideas #39–#43. Milestones: **"Bugfix backlog (code review #33-#38)"** holds the open #38, **"Ideas (later)"** holds the 5 open idea issues.
-- **#38 item 1 — Windows CI job: implemented in this PR** (ubuntu-latest + windows-latest × 3.12/3.13, `runs-on: ${{ matrix.os }}`, guard `tests/test_ci.py`).
-- **#38 item 2 — `LICENSE`.** Falco chose **MIT** on 2026-11-25 (`docs/decisions.md`). Next item: add the `LICENSE` file plus the `pyproject.toml` classifier.
+- `main` = `b5520b6` (PR #66 Windows CI squash-merged; branch deleted; `802a029..main` diff empty).
+- Open issues: **#38** (one item left after this PR, itemised below) and the ideas #39–#43. Milestones: **"Bugfix backlog (code review #33-#38)"** holds the open #38, **"Ideas (later)"** holds the 5 open idea issues.
+- **#38 item 1 — Windows CI job: merged 2026-11-25** as `b5520b6` (PR #66; ubuntu-latest + windows-latest × 3.12/3.13, `runs-on: ${{ matrix.os }}`, guard `tests/test_ci.py`; all 4 jobs green).
+- **#38 item 2 — `LICENSE`: implemented in this PR** (MIT, holder Falco404; see the Done entry).
 - **#38 item 3 — `docs/architecture.md` is stale.** Header still reads "Last updated: 2026-11-23 (M1)" and the Milestones line stops at M7 although M8 is merged; the prose is current piecemeal (it already covers the #36 Host allowlist, #37 per-thread SQLite connections, the nmap data-file registry, `-O`), so this is a header + milestone-list + spot-check job, not a rewrite.
 - **Fixture capture — still pending.** Falco's 2026-11-25 capture (`falco-nmap-testrun.xml`, regular PowerShell, `nmap -sV -O -oX ... 192.168.0.0/24`, Ctrl+C after ~2 min) is 4462 bytes, preamble-only, **zero `<host>` blocks**; `ET.parse` raises `ParseError: no element found: line 9, column 0` — the same shape as `atom_windows_admin.xml`, so it was **not** added as a second fixture. A usable fixture needs a scan that runs to completion (~4–5 min for the /24).
 - **#34 (`-O` privileges) is CLOSED** (2026-11-24): root IS required on Apollo (verified exit 1 unprivileged); unprivileged NetScope scans on Windows DO populate the OS column. The optional graceful hint ("OS column needs admin on Windows / root on Linux") is not implemented — follow-up polish, not a blocker.
-- Local housekeeping: 13 stale `hermes/*` branches remain in this clone (the handoff branch was deleted after its PR merged). Their PRs are all merged, but GitHub **squash-merged** them, so the commits are not ancestors of `main` (`git merge-base --is-ancestor` says no) and `git branch -d` refuses them. Delete with `git branch -D <branch>` only after confirming that branch's PR is merged — never blanket-delete.
+- Local housekeeping: several stale `hermes/*` branches remain in this clone (handoff and CI branches were deleted after their PRs merged). Delete each with `git branch -D` only after confirming its PR is merged. Their PRs are all merged, but GitHub **squash-merged** them, so the commits are not ancestors of `main` (`git merge-base --is-ancestor` says no) and `git branch -d` refuses them. Delete with `git branch -D <branch>` only after confirming that branch's PR is merged — never blanket-delete.
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
-1. **#38 — Windows CI job**: opened in this PR (branch `hermes/windows-ci-matrix`).
-2. **#38 — `LICENSE` (MIT, decided 2026-11-25)**: add the `LICENSE` file plus the `pyproject.toml` classifier in one small PR.
-3. **#38 — refresh `docs/architecture.md`**: header date, milestone list through M8, spot-check the prose against current code.
-4. **Capture a real nmap XML fixture** on Windows or Apollo — a scan that runs to **completion** (`nmap -sV -O -oX`, ~4–5 min for the `/24`, do not Ctrl+C) — then add parser tests against it. Fixtures must come from real tool output (AGENTS.md rule); the 2026-11-25 interrupted capture was preamble-only and unusable.
-5. **Optional polish from closed #34**: graceful hint when `-O` yields no OS data (admin on Windows, root on Linux/macOS).
-6. Optional later: #41 mDNS/NetBIOS name suggestions, #40 scheduled scans + alerting, #42 per-device timeline, #43 CSV/JSON export, #39 quick vs deep scan.
-7. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
+1. **#38 — refresh `docs/architecture.md`**: header date, milestone list through M8, spot-check the prose against current code. This is the last open #38 item.
+2. **Capture a real nmap XML fixture** on Windows or Apollo — a scan that runs to **completion** (`nmap -sV -O -oX`, ~4–5 min for the `/24`, do not Ctrl+C) — then add parser tests against it. Fixtures must come from real tool output (AGENTS.md rule); the 2026-11-25 interrupted capture was preamble-only and unusable. (Falco is running one as of this session.)
+3. **Optional polish from closed #34**: graceful hint when `-O` yields no OS data (admin on Windows, root on Linux/macOS).
+4. Optional later: #41 mDNS/NetBIOS name suggestions, #40 scheduled scans + alerting, #42 per-device timeline, #43 CSV/JSON export, #39 quick vs deep scan.
+5. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -89,7 +88,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 156 passed
+uv run pytest                 # 157 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```

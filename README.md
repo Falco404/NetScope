@@ -150,3 +150,7 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
 
 More detail: `docs/architecture.md` (design), `docs/decisions.md` (why each
 choice was made), `docs/gotchas.md` (nmap quirks worth knowing).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

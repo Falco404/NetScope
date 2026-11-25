@@ -2,6 +2,9 @@
 name = "netscope"
 version = "0.1.0"
 description = "Local network discovery and mapping tool (private ranges only)"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
 

@@ -49,3 +49,29 @@ def test_docs_never_install_with_the_dev_extra():
             assert not instruction.search(line), (
                 f"{doc}:{lineno} still installs with the extra: {line.strip()}"
             )
+
+
+def test_license_file_and_packaging_metadata_agree():
+    """#38: the repo ships an MIT LICENSE and pyproject says so too.
+
+    Falco chose MIT on 2026-11-25 (docs/decisions.md). The file and the
+    packaging metadata must not drift apart: a wheel that claims no license,
+    or a LICENSE that is not MIT, means consumers cannot tell what terms
+    apply.
+    """
+    license_file = ROOT / "LICENSE"
+    assert license_file.is_file(), "the repo must ship a LICENSE file (#38)"
+    text = license_file.read_text(encoding="utf-8")
+    assert text.startswith("MIT License"), "LICENSE must contain the MIT text"
+    assert "Copyright (c) 2026" in text, "LICENSE must carry the copyright line"
+
+    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    project = data["project"]
+    declared = project.get("license")
+    # PEP 639 string form or the older table form — either is acceptable.
+    assert declared == "MIT" or declared == {"text": "MIT"}, (
+        f"pyproject must declare the MIT license, got {declared!r}"
+    )
+    assert "License :: OSI Approved :: MIT License" in project.get("classifiers", []), (
+        "pyproject must carry the MIT classifier"
+    )
