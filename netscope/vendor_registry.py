@@ -61,7 +61,7 @@ def load_mac_prefixes(path: Path) -> int:
     number of entries loaded.
     """
     global _PREFIX_LENGTHS
-    count = 0
+    loaded: dict[str, str] = {}
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -71,10 +71,15 @@ def load_mac_prefixes(path: Path) -> int:
         vendor = vendor.strip()
         if not vendor or not key or not set(key) <= _HEX_DIGITS:
             continue
-        MAC_PREFIXES[key] = vendor
-        count += 1
+        loaded[key] = vendor
+    # Replace rather than merge: the file we just read *is* the registry, so
+    # vendors from a previously loaded file must not keep answering. Swapping
+    # only after the whole file parsed also keeps a file we fail to read
+    # halfway from leaving a half-loaded table behind.
+    MAC_PREFIXES.clear()
+    MAC_PREFIXES.update(loaded)
     _PREFIX_LENGTHS = tuple(sorted({len(k) for k in MAC_PREFIXES}, reverse=True))
-    return count
+    return len(loaded)
 
 
 def find_mac_prefixes_file() -> Path | None:

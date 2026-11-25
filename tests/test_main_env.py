@@ -8,6 +8,18 @@ server: uvicorn.run is monkeypatched, and the parsing helpers are pure.
 import pytest
 
 import netscope.__main__ as main_module
+from netscope import vendor_registry
+
+
+@pytest.fixture(autouse=True)
+def no_real_nmap_install(monkeypatch):
+    """`main()` reads nmap's data file at startup. On a machine where nmap IS
+    installed that pulls 52k real registrations into a process-wide table,
+    which then leaks into later test modules (it broke
+    `test_vendor_registry.py` on a Windows box with nmap in `PATH`). Pin the
+    search to nothing so startup tests are deterministic everywhere."""
+    monkeypatch.delenv("NMAPDIR", raising=False)
+    monkeypatch.setattr(vendor_registry.shutil, "which", lambda name: None)
 
 
 def test_parse_port_accepts_valid_values():

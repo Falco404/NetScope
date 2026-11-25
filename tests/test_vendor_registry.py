@@ -23,11 +23,23 @@ FIXTURE = Path(__file__).parent / "fixtures" / "nmap-mac-prefixes-sample.txt"
 
 @pytest.fixture
 def clean_registry():
-    """The loaded table is process-wide, so restore it after each test."""
+    """The loaded table is process-wide. Start every test from the built-in
+    seed and leave the table as it was found: a startup test that runs
+    `main()` on a machine where nmap IS installed loads 52k real registrations
+    into this dict, and they used to leak into the tests below (that is what
+    broke `test_comment_lines_are_not_entries` on a Windows box with nmap
+    installed — `525400 QEMU virtual NIC` is a genuine entry in nmap's file).
+    """
     original = dict(vendor_registry.MAC_PREFIXES)
+    original_lengths = vendor_registry._PREFIX_LENGTHS
+    vendor_registry.MAC_PREFIXES.clear()
+    vendor_registry.MAC_PREFIXES.update(
+        {p.replace(":", ""): n for p, n in vendor_registry.OUI_VENDORS.items()}
+    )
     yield
-    MAC_PREFIXES.clear()
-    MAC_PREFIXES.update(original)
+    vendor_registry.MAC_PREFIXES.clear()
+    vendor_registry.MAC_PREFIXES.update(original)
+    vendor_registry._PREFIX_LENGTHS = original_lengths
 
 
 def test_builtin_table_works_without_nmap():
@@ -49,6 +61,22 @@ def test_comment_lines_are_not_entries(clean_registry):
     load_mac_prefixes(FIXTURE)
     assert "525400" not in MAC_PREFIXES
     assert vendor_from_mac("52:54:00:11:22:33") is None
+
+
+def test_loading_a_file_replaces_the_registry(clean_registry, tmp_path):
+    """A load must mean "this file is the registry", not "add to it". Pointing
+    `NMAPDIR` at a different nmap install used to leave the previous file's
+    vendors answering forever, so a device could be labelled by a registry
+    that is no longer in effect."""
+    load_mac_prefixes(FIXTURE)
+    assert vendor_from_mac("B8:27:EB:11:22:33") == "Raspberry Pi Foundation"
+
+    other = tmp_path / "nmap-mac-prefixes"
+    other.write_text("525400 QEMU virtual NIC\n", encoding="utf-8")
+    assert load_mac_prefixes(other) == 1
+    assert vendor_from_mac("52:54:00:11:22:33") == "QEMU virtual NIC"
+    assert vendor_from_mac("B8:27:EB:11:22:33") is None
+    assert "A45055" not in MAC_PREFIXES
 
 
 def test_longest_prefix_wins_over_three_octets(clean_registry):
