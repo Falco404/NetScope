@@ -16,7 +16,7 @@ subnet this machine routes from.*
 **Contents:** [Quick start](#quick-start) · [Running it](#running-it) ·
 [Using the web UI](#using-the-web-ui) · [Exporting](#exporting) ·
 [The OS column is empty](#the-os-column-is-empty) ·
-[Troubleshooting](#troubleshooting) · [How it works](#how-it-works)
+[Troubleshooting](#troubleshooting) · [How/why this was made](#how-and-why-this-was-made) · [How it works](#how-it-works)
 
 ## What you need
 
@@ -218,6 +218,11 @@ ports, services, names — only the OS column stays blank, and the UI says so.
 | The scan takes minutes with no progress | Expected on a `/24` with hosts that do not answer; raise `NETSCOPE_NMAP_TIMEOUT` only if nmap is being cut off. |
 
 More nmap-specific quirks: `docs/gotchas.md`.
+
+## How and why this was made
+
+This project was made using `Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M` in the Strata engine, using Hermes Agent as the harness.
+The goal was to test the capabilities of a local AI coding model on 16GB VRAM and 32GB RAM.
 
 ## How it works
 
