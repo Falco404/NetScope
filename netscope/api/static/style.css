@@ -41,6 +41,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 #scan-status { color: var(--muted); font-size: 0.85rem; }
 #os-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.export { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.export-link { margin-left: 0.4rem; }
 
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; }

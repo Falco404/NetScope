@@ -1,4 +1,4 @@
-# Project Status (updated 2026-11-25)
+# Project Status (updated 2026-11-26)
 
 ## Summary
 NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
@@ -6,9 +6,10 @@ service versions and vendor in a web UI (FastAPI + static vanilla JS). All
 eight milestones (M1–M8) are merged, and the README is rewritten as the
 user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 **DONE** as of 2026-11-23 — future work is optional. **#41 is complete** (mDNS
-+ NetBIOS names, 2026-11-25); the only idea left is **#43**. #39 quick-vs-deep
-and #74 per-device deep scan also shipped; #40 and #42 were closed as
-`not_planned` by Falco. 231 tests pass, ruff clean.
++ NetBIOS names, 2026-11-25). #39 quick-vs-deep and #74 per-device deep scan
+also shipped; #40 and #42 were closed as `not_planned` by Falco.
+**#43 is half done**: CSV + JSON export shipped in this PR; the Docker image is
+the next PR, and Falco declined the systemd unit. 241 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -59,30 +60,67 @@ latest one is recorded as acceptance evidence on issue #10.
 - **#41 mDNS name suggestions** (branch `hermes/mdns-names`, this PR — **part 1 of 2**; NetBIOS is the next PR): every scan, quick or deep, now starts an **mDNS/DNS-SD lookup in a background thread** (`netscope/mdns.py`, new dep `zeroconf` 0.154.0 / python-zeroconf, LGPL-2.1-or-later) and uses the advertised `.local` name to fill `HostResult.hostname`. The rule: mDNS fills a name when the host has **no PTR name**, or when its PTR name is **shared by 2+ hosts in the same scan** — the sinkhole signature (`blocked.local` for eight devices), which the store suppresses anyway. A unique PTR name always wins. Result: on this LAN the mDNS names remove the "MicroStar Intl device (192.168.0.11)" fallback for everything that announces itself (Chromecast, printers, Avahi/Windows hosts), with **no schema change** — it writes the existing `devices.hostname` via the existing merge. The lookup is best-effort (`{}` on any failure, bounded at 3.5 s + 1.5 s, join capped at 10 s) and can be switched off with `NETSCOPE_MDNS=0`. 214 tests pass (18 new: 12 in `tests/test_mdns.py`, 5 engine tests incl. the real `home_lan` capture with 8× `blocked.local`, 1 API test; the engine/API ones proven RED against `main`, 39 failures there because `NmapScanner` had no `resolver`), ruff clean. Verified against **real multicast**: a fake zeroconf service registered in this container was found by `MdnsNameResolver().names_by_ip()` → `{'192.168.0.10': 'atom.local'}` in 3.5 s, and through the real app in a browser the device row read `atom.local`. **Real hit rates on the home LAN still need one scan on Atlas/Apollo** — this container cannot see that LAN.
 - **Falco's first real mDNS run** (2026-11-25, Apollo, unprivileged, a different LAN **without** Pi-hole): a quick `/24` took 4.93 s and the table showed working PTR names for most devices (`MyModem`, `Linksys47433`, `Marantz-CINEMA-40`, `SM-T530`, `iPhone`, …) plus one `.local` name (`eb48b229-2ebe-9edf-0dfb-780d60ef0764.local`). That is the expected shape: where PTR works, mDNS only adds the devices whose name is mDNS-only; the sinkhole case (many `blocked.local`) is the one where mDNS does the heavy lifting. The OS hint showed because the scan ran unprivileged — correct.
 - **#41 NetBIOS name suggestions — part 2 of 2, closes #41** (branch `hermes/netbios-names`, this PR): after discovery, `netscope/netbios.py` sends an **NBSTAT node-status query** (UDP 137) to each discovered host and takes its unique `<00>` workstation name (`DESKTOP-ABC123`). No new dependency — a small client implemented from nmap's own `nselib/netbios.lua` (header trn 0x1337, first-level encoded `*` padded with NULs, QTYPE 0x0021/QCLASS 0x0001; answer = TTL, RDLENGTH, 1-byte count, 18-byte entries of 15-byte name + suffix + 2-byte flags). Priority: **unique PTR > mDNS > NetBIOS** (mDNS overrides NetBIOS on the same address); the fill rule is the same as part 1. Queries are parallel across hosts with a 1 s timeout, and every failure (blocked UDP 137, timeout, garbage, NBT disabled) becomes "no name" — a scan never breaks. `NETSCOPE_NETBIOS=0` disables it; startup prints `Name suggestions: mDNS on (zeroconf), NetBIOS on`. 231 tests pass (17 new: 11 in `tests/test_netbios.py`, 5 engine, 1 API), ruff clean. Verified over **real UDP**: a scratch responder on 137 answering NBSTAT → `NetbiosNameResolver().names_by_ip(['127.0.0.1']) == {'127.0.0.1': 'ATLAS-WIN11'}` in 1 ms, an unreachable host → `{}` after the 0.4 s timeout, and the name rendered in the browser device table. **Not verified against a real Windows reply** — no NetBIOS device is reachable from this container (see `docs/gotchas.md` and the PR body).
-- **#79 root/`sudo` instructions fixed** (branch `hermes/sudo-docs`, this PR — docs only): the README told Linux/macOS users to "run the same command with `sudo`", which cannot work — uv is installed per user (`~/.local/bin`) and `sudo` uses `/etc/sudoers`' `secure_path`, so Falco got `sudo: uv: command not found` on Apollo. It now lists three options, cheapest first: (1) `sudo nmap -sV -O 127.0.0.1` — the exact probe `probe_os()` runs, so its result *is* the answer; (2) `sudo NETSCOPE_DB=/tmp/netscope-root.db .venv/bin/python -m netscope` — run the built interpreter as root without uv; (3) Linux only, `sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v nmap)"` once, then run unprivileged (undo with `-r`; macOS has no `setcap`). The README also no longer implies Windows needs anything (Npcap covers it). `docs/gotchas.md` gained the reasoning: even with a fixed `PATH`, `uv run` as root writes root-owned `.venv`/cache entries and breaks the user's next `uv sync` (recovery = `chown -R`), and the repo-local `netscope.db` would become root-owned. No code change — `probe_os()` already detects the privilege state and the OS hint already explains the empty column. 231 tests pass (unchanged), ruff clean. **Verified by Falco on Apollo** (Fedora, nmap 7.92): `sudo nmap -sV -O 127.0.0.1` ran OS detection and printed the TCP/IP fingerprint — so root does have raw sockets, and the README's option 1 answers the question. `sudo NETSCOPE_DB=/tmp/netscope-root.db .venv/bin/python -m netscope` started the app as root and a quick `/24` scan (5.92 s, 11 devices, vendors resolved) worked; the quick scan correctly showed `not probed` and the "quick scan — run a deep scan" hint, because a quick scan never probes ports or OS. His nmap run also surfaced one thing the docs had not said: **`-O` working does not imply an OS guess** — nmap answered `No exact OS matches for host` for localhost, so both the README option and `docs/gotchas.md` now say a successful probe can still leave the column empty and that the end-to-end test is a deep scan of a real device.
+- **#79 root/`sudo` instructions fixed** (branch `hermes/sudo-docs`, PR #80, merged 2026-11-26 — docs only): the README told Linux/macOS users to "run the same command with `sudo`", which cannot work — uv is installed per user (`~/.local/bin`) and `sudo` uses `/etc/sudoers`' `secure_path`, so Falco got `sudo: uv: command not found` on Apollo. It now lists three options, cheapest first: (1) `sudo nmap -sV -O 127.0.0.1` — the exact probe `probe_os()` runs, so its result *is* the answer; (2) `sudo NETSCOPE_DB=/tmp/netscope-root.db .venv/bin/python -m netscope` — run the built interpreter as root without uv; (3) Linux only, `sudo setcap cap_net_raw,cap_net_admin+eip "$(command -v nmap)"` once, then run unprivileged (undo with `-r`; macOS has no `setcap`). The README also no longer implies Windows needs anything (Npcap covers it). `docs/gotchas.md` gained the reasoning: even with a fixed `PATH`, `uv run` as root writes root-owned `.venv`/cache entries and breaks the user's next `uv sync` (recovery = `chown -R`), and the repo-local `netscope.db` would become root-owned. No code change — `probe_os()` already detects the privilege state and the OS hint already explains the empty column. 231 tests pass (unchanged), ruff clean. **Verified by Falco on Apollo** (Fedora, nmap 7.92): `sudo nmap -sV -O 127.0.0.1` ran OS detection and printed the TCP/IP fingerprint — so root does have raw sockets, and the README's option 1 answers the question. `sudo NETSCOPE_DB=/tmp/netscope-root.db .venv/bin/python -m netscope` started the app as root and a quick `/24` scan (5.92 s, 11 devices, vendors resolved) worked; the quick scan correctly showed `not probed` and the "quick scan — run a deep scan" hint, because a quick scan never probes ports or OS. His nmap run also surfaced one thing the docs had not said: **`-O` working does not imply an OS guess** — nmap answered `No exact OS matches for host` for localhost, so both the README option and `docs/gotchas.md` now say a successful probe can still leave the column empty and that the end-to-end test is a deep scan of a real device.
+
+- **#43 export — CSV + JSON** (branch `hermes/export`, this PR — **first half of #43**; the Docker image is the next PR, the systemd unit was declined): `GET /api/export?format=csv|json` downloads the **current inventory**. CSV is one row per device (`identity, mac, ip, name, hostname, vendor, os_guess, status, ports_probed, last_seen_scan, open_ports`, ports flattened as `22/tcp ssh 8.4p1 Debian; 80/tcp http 1.22.1`); JSON is the lossless form (`generated_at`, `device_count`, nested `ports` with service + version). Both are rendered from `_inventory_records()` in `netscope/api/app.py` — the same records `/api/devices` now projects, so the file can never disagree with the table (pinned by `test_export_agrees_with_the_devices_endpoint`). The new store query `scan_port_details(scan_id)` supplies the service/version that `scan_ports()` drops — no schema change. Three traps handled deliberately: **`not probed` vs `none open`** (#39 — a quick scan exports `not probed`, never a blank cell), **CSV formula injection** (a LAN hostname starting with `= + - @` gets a `'` prefix, since Excel evaluates it even when quoted — same hostile-input class as the #32 XSS), and **UTF-8 BOM** so Windows Excel keeps non-ASCII vendor names. The UI gets two plain download links under the Devices heading (no JS). 241 tests pass (10 new: 9 in `tests/test_export.py`, 1 in `tests/test_store.py`), ruff clean; the formula and `not probed` guards were proven RED by reverting each fix (`assert '=HYPERLINK(...)' == '\'=HYPERLINK(...)'`, `assert 'none open' == 'not probed'`), and the endpoints were verified against the **real app** in this container with nmap faked (`content-disposition: attachment; filename="netscope-inventory-20261126-103314.csv"`, BOM present, `22/tcp ssh 8.4p1 Debian; 80/tcp http 1.22.1`) plus a real-browser check that both links render with `download`.
 
 ## In progress
-- **Nothing is in progress.** #39 (#73), #74 (#75), #41 mDNS (#76) and #41 NetBIOS (#77) are merged; **the #79 sudo-instruction fix ships in this PR (docs only).** Open: **#43** (the last idea) and **#78** (verify names on the home LAN — waiting on Atlas access).
+- **Nothing is in progress.** #39 (#73), #74 (#75), #41 mDNS (#76), #41 NetBIOS
+  (#77) and #79 (#80) are merged; **the #43 export half ships in this PR.**
+  Open: **#43** (its Docker-image half is the next PR) and **#78** (verify
+  names on the home LAN — waiting on Atlas access).
 
-## Handoff state (2026-11-25, after the #79 sudo docs — read this first)
-- `main` = `039c6b1` (PR #77, NetBIOS names) + the squash-merge of this PR (`hermes/sudo-docs`). **No open PRs once it merges; nothing is in progress.**
-- **Every bug from the Claude Code review is fixed and closed**: #30–#38 are CLOSED, the "Bugfix backlog (code review #33-#38)" milestone is CLOSED. No open bug issue exists.
-- **Six optional items are done**: the #34 OS hint, **#39 quick vs deep**, **#74 per-device deep scan**, **#41 mDNS**, **#41 NetBIOS** (issue closed) and **#79 the sudo docs** (this PR).
-- Open issues after this PR merges: **#43** (CSV/JSON export, systemd unit, Docker image — the last idea) and **#78** (verify mDNS/NetBIOS name discovery on the home LAN, blocked until Falco can scan Atlas in a few days). **#40 and #42 were closed `not_planned` by Falco on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them on your own.
-- **Suite: 231 tests pass, ruff clean**; CI green on ubuntu-latest + windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in PR #66).
-- **A real fixture exists**: `tests/fixtures/home_lan_complete_2026-11-25.xml` — Falco's completed scan (12 hosts, nmap 7.80 on Windows, 599.73 s), MAC addresses mechanically redacted with `scripts/redact_mac_addresses.py`; provenance and both sha256s in `tests/fixtures/README.md`, the raw capture stays out of the repo.
-- **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place. Neither name source needed a schema change.
-- **Unverified on real devices** (tracked as #78): the NetBIOS parser has only been tested against packets built to nmap's layout, and the mDNS hit rate on the home LAN is measured on one *other* LAN so far.
-- **Handoff timeline (all 2026-11-25)**: #65 docs handoff → #66 Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real fixture (MACs redacted) → #70 final housekeeping → #71 final STATUS update → #72 #34 OS hint → #73 quick vs deep (#39) → #75 per-device deep scan (#74) → #76 mDNS (#41) → #77 NetBIOS (closed #41) → this PR (#79 sudo docs).
+## Handoff state (2026-11-26, after the #43 export — read this first)
+- `main` = `2712990` (PR #80, the sudo/root docs) **+ the squash-merge of this
+  PR** (`hermes/export`). **No open PRs once it merges; nothing is in
+  progress.** The clone holds only `main` (Falco deleted the merged
+  `hermes/sudo-docs` branch on the remote on 2026-11-26).
+- **Every bug from the Claude Code review is fixed and closed**: #30–#38 are
+  CLOSED, the "Bugfix backlog (code review #33-#38)" milestone is CLOSED. No
+  open bug issue exists.
+- **#43 is half done in this PR**: `GET /api/export?format=csv|json` downloads
+  the current inventory (CSV: one row per device; JSON: nested ports with
+  service + version, a `generated_at` stamp and a count), built from the same
+  records the Devices table renders (`_inventory_records()`), with
+  formula-injection-neutralised CSV, UTF-8 BOM and `not probed` kept distinct
+  from `none open`. `store.scan_port_details()` is the one new query (no schema
+  change). The **Docker image is the next PR**; Falco **declined the systemd
+  unit** (recorded in `docs/decisions.md`).
+- Open issues after this PR merges: **#43** (only the Docker-image half left)
+  and **#78** (verify mDNS/NetBIOS name discovery on the home LAN, blocked
+  until Falco can scan Atlas). **#40 and #42 were closed `not_planned` by Falco
+  on 2026-11-25** (recorded in `docs/decisions.md`); do not reopen them.
+- **Suite: 241 tests pass, ruff clean**; CI green on ubuntu-latest +
+  windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in
+  PR #66).
+- **A real fixture exists**: `tests/fixtures/home_lan_complete_2026-11-25.xml` —
+  Falco's completed scan (12 hosts, nmap 7.80 on Windows, 599.73 s), MAC
+  addresses mechanically redacted with `scripts/redact_mac_addresses.py`;
+  provenance and both sha256s in `tests/fixtures/README.md`, the raw capture
+  stays out of the repo.
+- **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place.
+  Neither name source and neither export needed a schema change.
+- **Unverified on real devices** (tracked as #78): the NetBIOS parser has only
+  been tested against packets built to nmap's layout, and the mDNS hit rate on
+  the home LAN is measured on one *other* LAN so far.
+- **Handoff timeline (all 2026-11-25 unless noted)**: #65 docs handoff → #66
+  Windows CI → #67 LICENSE → #68 architecture refresh (closed #38) → #69 real
+  fixture (MACs redacted) → #70 final housekeeping → #71 final STATUS update →
+  #72 #34 OS hint → #73 quick vs deep (#39) → #75 per-device deep scan (#74) →
+  #76 mDNS (#41) → #77 NetBIOS (closed #41) → #80 sudo docs (#79) → this PR
+  (2026-11-26, #43 export).
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
 1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (PR #72).
 2. ~~#39 quick scan vs deep scan~~ — **done** (PR #73).
 3. ~~#74 deep scan a single device from the detail panel~~ — **done** (PR #75).
 4. ~~#41 part 2 — NetBIOS name suggestions~~ — **done** (PR #77, closed #41).
-5. ~~#79 fix the README's root/`sudo` instructions~~ — **done** (this PR, docs only).
-6. **#78 verify mDNS + NetBIOS names on the home LAN** — blocked until Falco can scan Atlas (a few days); see the issue for the checklist.
-7. Optional later: #43 CSV/JSON export + systemd unit + Docker image — the last idea. (#40 and #42 were closed `not_planned` by Falco — do not pick them up.)
+5. ~~#79 fix the README's root/`sudo` instructions~~ — **done** (PR #80, docs only).
+6. ~~#43 part 1: CSV + JSON export of the current inventory~~ — **done** (this
+   PR). Part 2, the **Docker image**, is the next PR (`--network host`, so the
+   container can actually see the LAN — see `docs/gotchas.md`). The **systemd
+   unit is dropped**: Falco declined it (recorded in `docs/decisions.md`).
+7. **#78 verify mDNS + NetBIOS names on the home LAN** — blocked until Falco can scan Atlas (a few days); see the issue for the checklist.
 8. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
 
 ## Known issues and gotchas
@@ -104,7 +142,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 231 passed
+uv run pytest                 # 241 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
