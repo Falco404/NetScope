@@ -8,6 +8,11 @@ each device with its name, IP, vendor, open ports and service versions, plus a
 history of what appeared or disappeared between scans. Private networks only
 (`10/8`, `172.16/12`, `192.168/16`) — anything else is refused.
 
+![NetScope's start screen: the target subnet is filled in from this machine, Quick scan and Deep scan buttons above an empty device table reading "No devices yet — run a scan."](docs/images/ui-empty-state.png)
+
+*The start screen, before the first scan — the target is prefilled with the
+subnet this machine routes from.*
+
 **Contents:** [Quick start](#quick-start) · [Running it](#running-it) ·
 [Using the web UI](#using-the-web-ui) · [Exporting](#exporting) ·
 [The OS column is empty](#the-os-column-is-empty) ·
