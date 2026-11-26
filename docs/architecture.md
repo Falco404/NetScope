@@ -1,6 +1,6 @@
 # Architecture & decisions
 
-Last updated: 2026-11-26 (after M8, the #30–#38 bugfix backlog and the #43 export half — the Docker image is still to come). The design decisions were approved before the code was written; the implementation notes were spot-checked against the tree on this date.
+Last updated: 2026-11-26 (after M8, the #30–#38 bugfix backlog and the #43 export; the Docker image and systemd unit were declined, so #43 is closed). The design decisions were approved before the code was written; the implementation notes were spot-checked against the tree on this date.
 
 ## Stack
 - **Language:** Python 3.12+, managed with `uv` (`pyproject.toml`); runtime deps are FastAPI, uvicorn and python-zeroconf (distribution `zeroconf`, LGPL-2.1-or-later, imported unmodified). Chosen because nmap integration is simple subprocess work, pytest keeps scanner logic testable without a network, and no build step is needed on Apollo (Fedora) or Atom (DietPi).
