@@ -295,6 +295,22 @@ def test_save_load_roundtrip(store):
     assert ports["192.168.1.20"] == frozenset({(53, "tcp")})
 
 
+def test_scan_port_details_carries_service_and_version(store):
+    """#43: the export needs what `scan_ports` drops, from the same rows."""
+    scan_id, _ = store.save_scan(fixture_scan("nmap_service.xml"), {}, ts=TS1)
+
+    details = store.scan_port_details(scan_id)
+    assert details["AA:BB:CC:DD:EE:01"] == [
+        (22, "tcp", "ssh", "8.4p1 Debian"),
+        (80, "tcp", "http", "1.22.1"),
+    ]
+    # Same scan, same ports: the detail query must not widen or narrow the set.
+    assert {(p, proto) for p, proto, _, _ in details["AA:BB:CC:DD:EE:01"]} == store.scan_ports(
+        scan_id
+    )["AA:BB:CC:DD:EE:01"]
+    assert store.scan_port_details(999) == {}
+
+
 def test_second_scan_updates_devices_without_duplicates(store):
     _, devices = store.save_scan(fixture_scan("nmap_discovery.xml"), {}, ts=TS1)
     scan2, _ = store.save_scan(fixture_scan("nmap_service.xml"), devices, ts=TS2)

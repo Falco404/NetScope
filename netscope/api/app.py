@@ -11,16 +11,19 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from netscope.device import Device
+from netscope.export import filename as export_filename
+from netscope.export import to_csv, to_json
 from netscope.local_subnet import local_subnet as _detect_local_subnet
 from netscope.scanner.engine import NmapScanner
 from netscope.store import SQLiteStore
@@ -191,6 +194,69 @@ class NetScopeAPI:
             }
 
 
+def _inventory_records(api: NetScopeAPI) -> list[dict[str, Any]]:
+    """Current inventory: one record per device, superset of `/api/devices`.
+
+    Shared by the Devices table and `/api/export` (#43) on purpose — the CSV and
+    the JSON are built from the exact rows the UI shows, so the export cannot
+    drift from the screen (same hostname suppression, same presence rule, same
+    "was this scan deep?" answer).
+    """
+    sightings_cache: dict[int, dict[str, str]] = {}
+    ports_cache: dict[int, dict[str, list[tuple[int, str, str | None, str | None]]]] = {}
+    mode_cache: dict[int, str | None] = {}
+
+    def sightings_for(scan_id: int) -> dict[str, str]:
+        if scan_id not in sightings_cache:
+            sightings_cache[scan_id] = api.store.sightings(scan_id)
+        return sightings_cache[scan_id]
+
+    def ports_for(scan_id: int) -> dict[str, list[tuple[int, str, str | None, str | None]]]:
+        if scan_id not in ports_cache:
+            ports_cache[scan_id] = api.store.scan_port_details(scan_id)
+        return ports_cache[scan_id]
+
+    def mode_for(scan_id: int) -> str | None:
+        if scan_id not in mode_cache:
+            mode_cache[scan_id] = api.store.scan_mode(scan_id)
+        return mode_cache[scan_id]
+
+    records = []
+    for d in api.store.load_devices():
+        # Presence is judged against the latest scan that could have seen
+        # this device (#31): a single-IP scan of another device must not
+        # mark every other device absent, and an up host with zero open
+        # ports is still seen.
+        cover = api.store.latest_scan_covering(d.ip)
+        seen = sightings_for(cover) if cover is not None else {}
+        details = ports_for(cover) if cover is not None else {}
+        records.append(
+            {
+                "identity": d.identity,
+                "mac": d.mac,
+                "ip": d.ip,
+                "name": d.display_name,
+                "manual_name": d.name,
+                "hostname": d.hostname,
+                "vendor": d.vendor,
+                "os_guess": d.os_guess,
+                "status": "seen" if d.identity in seen else "absent",
+                # #39: a quick scan probes no ports, so an empty list then
+                # means "not measured", not "nothing open". Every consumer
+                # (UI, CSV, JSON) gets the flag instead of guessing.
+                "ports_probed": cover is not None and mode_for(cover) == "deep",
+                "last_seen_scan": d.last_seen_scan,
+                "ports": [
+                    {"port": port, "protocol": protocol, "service": service, "version": version}
+                    for port, protocol, service, version in sorted(
+                        details.get(d.identity, []), key=lambda row: (row[0], row[1])
+                    )
+                ],
+            }
+        )
+    return records
+
+
 def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
     app = FastAPI(title="NetScope", docs_url=None, redoc_url=None)
     # Outermost middleware: a foreign Host header never reaches a route, so
@@ -212,49 +278,52 @@ def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
 
     @app.get("/api/devices")
     def devices() -> list[dict[str, Any]]:
-        sightings_cache: dict[int, dict[str, str]] = {}
+        # Projection of the shared inventory (#43): same rows as the export,
+        # minus the export-only detail (mac, nested ports).
+        return [
+            {
+                "identity": r["identity"],
+                "ip": r["ip"],
+                "name": r["name"],
+                "manual_name": r["manual_name"],
+                "hostname": r["hostname"],
+                "vendor": r["vendor"],
+                "os_guess": r["os_guess"],
+                "status": r["status"],
+                "open_ports": [f"{p['port']}/{p['protocol']}" for p in r["ports"]],
+                "ports_probed": r["ports_probed"],
+                "last_seen_scan": r["last_seen_scan"],
+            }
+            for r in _inventory_records(api)
+        ]
 
-        def sightings_for(scan_id: int) -> dict[str, str]:
-            if scan_id not in sightings_cache:
-                sightings_cache[scan_id] = api.store.sightings(scan_id)
-            return sightings_cache[scan_id]
+    @app.get("/api/export")
+    def export(
+        fmt: Literal["csv", "json"] = Query("json", alias="format"),
+    ) -> Response:
+        """#43: download the current inventory as JSON or CSV.
 
-        out = []
-        mode_cache: dict[int, str | None] = {}
-
-        def mode_for(scan_id: int) -> str | None:
-            if scan_id not in mode_cache:
-                mode_cache[scan_id] = api.store.scan_mode(scan_id)
-            return mode_cache[scan_id]
-
-        for d in api.store.load_devices():
-            # Presence is judged against the latest scan that could have seen
-            # this device (#31): a single-IP scan of another device must not
-            # mark every other device absent, and an up host with zero open
-            # ports is still seen.
-            cover = api.store.latest_scan_covering(d.ip)
-            seen = sightings_for(cover) if cover is not None else {}
-            ports = api.store.scan_ports(cover) if cover is not None else {}
-            open_ports = sorted(ports.get(d.identity, ()))
-            out.append(
-                {
-                    "identity": d.identity,
-                    "ip": d.ip,
-                    "name": d.display_name,
-                    "manual_name": d.name,
-                    "hostname": d.hostname,
-                    "vendor": d.vendor,
-                    "os_guess": d.os_guess,
-                    "status": "seen" if d.identity in seen else "absent",
-                    "open_ports": [f"{p}/{proto}" for p, proto in open_ports],
-                    # #39: a quick scan probes no ports, so an empty list then
-                    # means "not measured", not "nothing open". The UI needs to
-                    # tell those apart instead of showing a blank cell.
-                    "ports_probed": cover is not None and mode_for(cover) == "deep",
-                    "last_seen_scan": d.last_seen_scan,
-                }
-            )
-        return out
+        Read-only and derived — nothing is written, no schema change. Both
+        formats come from `_inventory_records`, i.e. from the same rows the
+        Devices table shows, so the file matches the screen.
+        """
+        records = _inventory_records(api)
+        now = datetime.now(timezone.utc)
+        if fmt == "csv":
+            body = to_csv(records)
+            media_type = "text/csv; charset=utf-8"
+        else:
+            body = to_json(records, now)
+            media_type = "application/json"
+        return Response(
+            content=body,
+            media_type=media_type,
+            headers={
+                # Quoted filename; the stem is ASCII by construction, so no
+                # RFC 5987 `filename*` fallback is needed.
+                "Content-Disposition": f'attachment; filename="{export_filename(fmt, now)}"',
+            },
+        )
 
     @app.get("/api/os-hint")
     def os_hint() -> dict[str, Any]:

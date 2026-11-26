@@ -167,6 +167,13 @@ firewall prompt for incoming connections — allow it.
   scan in the history (with the `/32` target).
 - **Changes since previous scan** lists appeared/disappeared devices;
   **scan history** lists past scans with target and duration.
+- **Export** (under the Devices heading): *CSV* or *JSON* downloads the
+  current inventory — one row per device in the CSV (ports, services and
+  versions flattened into one cell), full nested detail plus a timestamp in
+  the JSON. Both come from the same rows as the table, so the file always
+  matches what you see. A quick scan exports `not probed`, never a blank
+  ports cell, and spreadsheet-formula-looking values are neutralised so Excel
+  cannot execute a hostname.
 
 ## How it works under the hood
 
@@ -218,7 +225,7 @@ step), SQLite via the stdlib, `nmap` as a subprocess.
 - **`netscope/api/app.py` + `static/` — web app.** JSON endpoints
   (`/api/scans`, `/api/devices`, `/api/devices/<identity>`, `/api/diff`,
   `/api/os-hint`, `POST /api/scan`, `POST /api/devices/<identity>/scan`,
-  `/api/scan/status`, `/api/local-subnet`).
+  `/api/scan/status`, `/api/local-subnet`, `/api/export?format=csv|json`).
   Scans run in a background thread; the UI stays dumb — it fetches JSON,
   renders, and polls status. `/api/local-subnet` asks the OS which local IP it
   would route from (UDP `connect()`, no packet sent) and assumes `/24` —

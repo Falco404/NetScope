@@ -51,6 +51,32 @@ Written for the next session. Each one cost real debugging time.
 - **No NetBIOS-capable device exists in this container**, so the parser is tested against packets built to nmap's documented layout (`tests/test_netbios.py::nbstat_response`) and the client against a scratch responder over real UDP 137 — a real Windows reply is still unverified. It degrades to "no names" on any bad packet, so a wrong layout would be silent; the first real confirmation is a scan on Falco's LAN with a Windows box that has NetBIOS enabled (`nbtstat -A <ip>` on that box shows what it would answer).
 - **NetBIOS queries are per-host and can be blocked**: Windows Firewall may drop UDP 137, and many modern Windows installs disable NetBIOS over TCP/IP entirely; Linux hosts without Samba never answer. That is why mDNS stays the primary source and the timeout is short (1 s, parallel across hosts).
 
+## Export (#43, CSV/JSON)
+- **A CSV cell is not inert.** Hostnames, vendors and OS guesses come off the
+  LAN, and Excel/LibreOffice evaluate a cell starting with `=` `+` `-` `@` (or
+  a tab/CR) as a formula **even when the field is quoted**. `netscope/export.py`
+  prefixes such values with `'` (`csv_cell`), and the check runs on
+  `lstrip()`ed text because Excel trims leading spaces before evaluating.
+  Same class as the #32 stored XSS: scan-derived strings are hostile input.
+  JSON is not a spreadsheet, so it keeps the raw value on purpose.
+- **`csv.writer` quoting is not enough for that**, only for separators,
+  quotes and newlines. Both are needed.
+- **Write the CSV as UTF-8 with BOM** (`utf-8-sig`). Without the BOM Windows
+  Excel reads it as ANSI and mangles non-ASCII vendor names.
+- **`not probed` and `none open` are different cells.** A quick scan stores no
+  port rows; exporting a blank cell would claim "nothing is open" (#39). The
+  `ports_probed` column carries the truth, and `ports_cell()` writes
+  `not probed` / `none open` explicitly.
+- **Build the export from the same rows the UI shows.** `_inventory_records()`
+  in `netscope/api/app.py` feeds both `/api/devices` and `/api/export`, so the
+  file cannot drift from the table (same #38 hostname suppression, same #31
+  presence rule). `tests/test_export.py::test_export_agrees_with_the_devices_endpoint`
+  pins it.
+- **Service/version needs its own query.** `scan_ports()` returns only
+  `(port, protocol)`; `scan_port_details(scan_id)` returns the same rows with
+  `service`/`version` (the export needs them). Same scan, so the port set can
+  never disagree with the UI.
+
 ## Frontend (app.js)
 - **Never render scan/DB strings as markup.** Hostname, OS guess, vendor and
   service product come from the LAN and are stored in SQLite, so markup in them

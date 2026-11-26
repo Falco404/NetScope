@@ -429,6 +429,27 @@ class SQLiteStore:
             out.setdefault(identity, set()).add((port, protocol))
         return {k: frozenset(v) for k, v in out.items()}
 
+    def scan_port_details(
+        self, scan_id: int
+    ) -> dict[str, list[tuple[int, str, str | None, str | None]]]:
+        """identity -> [(port, protocol, service, version)] open in ONE scan.
+
+        #43: the export needs the service/version nmap found, which
+        `scan_ports` drops (it only answers "which ports are open"). Same rows,
+        same scan, so an export can never show a port the UI does not.
+        """
+        rows = self.conn.execute(
+            """
+            SELECT identity, port, protocol, service, version
+            FROM device_ports WHERE scan_id = ? ORDER BY port, protocol
+            """,
+            (scan_id,),
+        ).fetchall()
+        out: dict[str, list[tuple[int, str, str | None, str | None]]] = {}
+        for identity, port, protocol, service, version in rows:
+            out.setdefault(identity, []).append((port, protocol, service, version))
+        return out
+
     def port_history(self, identity: str) -> list[tuple[int, int, str, str | None, str | None]]:
         """(scan_id, port, protocol, service, version) rows for one device, newest scan first."""
         return self.conn.execute(
