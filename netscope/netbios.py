@@ -79,6 +79,13 @@ def parse_nbstat_response(data: bytes, transaction_id: int = TRANSACTION_ID) -> 
         return None
 
     pos = 12
+    # The header is only 12 bytes; the label length is the 13th. Checking
+    # `len(data) < 12` above let a 12-byte reply through and data[12] raised
+    # IndexError, which escaped `_query` and silently disabled NetBIOS naming
+    # for the whole scan (one hostile device is enough). Every later field is
+    # bounds-checked, so this one byte-length guard makes the parser total.
+    if len(data) < 13:
+        return None
     label_len = data[pos]
     pos += 1 + label_len + 1  # encoded label + root terminator
     if pos + 10 > len(data):

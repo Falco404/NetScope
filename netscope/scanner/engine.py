@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import ipaddress
 import threading
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import replace
 
 from netscope.mdns import NameResolver
@@ -39,6 +40,32 @@ PHASE_SERVICES = "services"
 # are constants instead of bare strings scattered over four layers.
 MODE_QUICK = "quick"
 MODE_DEEP = "deep"
+
+
+def service_pass_addresses(
+    hosts: Iterable[HostResult], net: ipaddress.IPv4Network
+) -> list[str]:
+    """The addresses safe to hand to the second nmap pass, re-serialised.
+
+    The discovery addresses come out of a parsed XML document — `parse_nmap_xml`
+    takes `<address addr="…">` verbatim — and they go straight into nmap's argv.
+    nmap only ever writes addresses it scanned, so this is defence in depth, not
+    a live hole; but an argv element must not be trusted merely because a parser
+    produced it, since `-oN/tmp/x` is a valid XML attribute value and a valid
+    nmap flag. Anything that is not a plain IPv4 address inside `net` is dropped,
+    and what survives is the canonical `str(ipaddress)` form (no leading zeros,
+    no spaces, cannot start with `-`). Returns [] if nothing survives.
+    """
+    addresses: list[str] = []
+    for host in hosts:
+        try:
+            addr = ipaddress.ip_address(host.ip)
+        except ValueError:  # not an address at all (garbage, hostname, "-oN…")
+            continue
+        if not isinstance(addr, ipaddress.IPv4Address) or addr not in net:
+            continue
+        addresses.append(str(addr))
+    return addresses
 
 
 class NmapScanner:
@@ -107,7 +134,7 @@ class NmapScanner:
             hosts = self._with_names(tuple(discovered_hosts), names)
             return ScanResult(target=target_str, hosts=hosts, mode=mode)
 
-        discovered = [h.ip for h in discovered_hosts]
+        discovered = service_pass_addresses(discovered_hosts, net)
 
         if not discovered:
             return ScanResult(target=target_str, hosts=(), mode=mode)
