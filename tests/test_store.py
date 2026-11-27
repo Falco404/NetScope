@@ -1,5 +1,7 @@
 """Store tests on temp DBs (pytest tmp_path) — no shared state, no network."""
 
+import os
+import stat
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -657,3 +659,23 @@ def test_quick_scan_still_reports_appeared_devices(store):
     assert diff.new_devices == ("192.168.1.20", "AA:BB:CC:DD:EE:01")
     assert diff.gone_devices == ("192.168.1.30",)
     assert diff.changed_devices == ()
+
+
+# --- #security: the inventory file is owner-only --------------------------
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Windows uses ACLs; chmod only toggles read-only")
+def test_database_and_sidecars_are_owner_only(tmp_path):
+    """A 0644 netscope.db is a ready-made target list for any other local user."""
+    path = tmp_path / "inventory.db"
+    store = SQLiteStore(path)
+    # Force the WAL to exist by writing one scan, then re-check every file.
+    store.save_scan(fixture_scan("nmap_discovery.xml"), {}, ts=TS1)
+
+    for suffix in ("", "-wal", "-shm"):
+        sidecar = Path(str(path) + suffix)
+        if not sidecar.exists():
+            continue  # sqlite removes an idle WAL on a clean close
+        mode = stat.S_IMODE(sidecar.stat().st_mode)
+        assert mode == 0o600, f"{sidecar.name} is {oct(mode)}"
+    store.close()

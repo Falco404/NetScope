@@ -1,4 +1,4 @@
-# Project Status (updated 2026-11-26)
+# Project Status (updated 2026-11-27)
 
 ## Summary
 NetScope scans private LAN ranges with `nmap` and shows devices, open ports,
@@ -10,7 +10,10 @@ user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 also shipped; #40 and #42 were closed as `not_planned` by Falco.
 **#43 is closed** (2026-11-26): the CSV + JSON export shipped (PR #81); the
 systemd unit and the Docker image were declined by Falco, so #78 is the only
-open item. 241 tests pass, ruff clean.
+open item. **Security hardening is in progress** (2026-11-27): a third-party
+review's findings are being worked off in three PRs — the server-edge cluster
+is this PR, then the NetBIOS parser bound, then CI permissions. 254 tests pass,
+ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -65,44 +68,60 @@ latest one is recorded as acceptance evidence on issue #10.
 
 - **#43 export — CSV + JSON** (branch `hermes/export`, PR #81, merged 2026-11-26 — the export was the only part built; Docker and systemd were then declined): `GET /api/export?format=csv|json` downloads the **current inventory**. CSV is one row per device (`identity, mac, ip, name, hostname, vendor, os_guess, status, ports_probed, last_seen_scan, open_ports`, ports flattened as `22/tcp ssh 8.4p1 Debian; 80/tcp http 1.22.1`); JSON is the lossless form (`generated_at`, `device_count`, nested `ports` with service + version). Both are rendered from `_inventory_records()` in `netscope/api/app.py` — the same records `/api/devices` now projects, so the file can never disagree with the table (pinned by `test_export_agrees_with_the_devices_endpoint`). The new store query `scan_port_details(scan_id)` supplies the service/version that `scan_ports()` drops — no schema change. Three traps handled deliberately: **`not probed` vs `none open`** (#39 — a quick scan exports `not probed`, never a blank cell), **CSV formula injection** (a LAN hostname starting with `= + - @` gets a `'` prefix, since Excel evaluates it even when quoted — same hostile-input class as the #32 XSS), and **UTF-8 BOM** so Windows Excel keeps non-ASCII vendor names. The UI gets two plain download links under the Devices heading (no JS). 241 tests pass (10 new: 9 in `tests/test_export.py`, 1 in `tests/test_store.py`), ruff clean; the formula and `not probed` guards were proven RED by reverting each fix (`assert '=HYPERLINK(...)' == '\'=HYPERLINK(...)'`, `assert 'none open' == 'not probed'`), and the endpoints were verified against the **real app** in this container with nmap faked (`content-disposition: attachment; filename="netscope-inventory-20261126-103314.csv"`, BOM present, `22/tcp ssh 8.4p1 Debian; 80/tcp http 1.22.1`) plus a real-browser check that both links render with `download`.
 - **#43 closed — Docker image and systemd unit declined** (PR #82, merged 2026-11-26, docs only): Falco merged the export (#81), then dropped the other two items ("the docker image seems to be too much work and not worth it"), so **#43 is closed and nothing is left in the backlog**. The reasoning is recorded in `docs/decisions.md`: the image would need `--network host` (unreliable on Windows, so Apollo-only), container capabilities or `setcap`, a data volume, a second CI job and a compose file — to reach what `uv run python -m netscope` already does on the same machine, and unverifiable from this agent container (no Docker daemon, no LAN in CI). Nothing was built, so nothing needs maintaining. Reopening it means a fresh decision, not a resumption.
-- **README rewritten for users** (this PR, docs only): the README was still organised like a developer log — setup separate from running, a 45-line root/capability essay sitting between "run it" and "use it", an archaeology paragraph about a `uv sync --extra dev` flag that no longer exists, and a "How it works" list that duplicated `docs/architecture.md` bullet for bullet. It now goes *what it is* → what you need → a copy-paste quick start per OS (Windows first, with the real winget IDs `astral-sh.uv` and `Insecure.Nmap`) → *Running it* (settings table, where the DB lives, a shorter root/`setcap` section) → *Using the web UI* → *Exporting* → *Troubleshooting* (one table: `400 Invalid host header`, port in use, "only sees 172.17.x because you are inside Docker/WSL", nmap missing, macOS firewall) → a six-bullet *How it works* linking to the design docs. Stale facts fixed: "231 tests" → **241**, `winget install nmap` → the real package ID, and a `see Internals` cross-reference to a section that is no longer called that. Nothing factual was lost — the module-by-module detail it carried already lives in `docs/architecture.md`, now its single home. Falco then supplied a screenshot of the start screen with no scans done, now the header image (`docs/images/ui-empty-state.png`, 1356×792, 76 KB — the only real UI capture in the repo; it shows the subnet prefill, both scan buttons and the empty table, and no device names or MACs).
+- **README rewritten for users** (PR #83, docs only): the README was still organised like a developer log — setup separate from running, a 45-line root/capability essay sitting between "run it" and "use it", an archaeology paragraph about a `uv sync --extra dev` flag that no longer exists, and a "How it works" list that duplicated `docs/architecture.md` bullet for bullet. It now goes *what it is* → what you need → a copy-paste quick start per OS (Windows first, with the real winget IDs `astral-sh.uv` and `Insecure.Nmap`) → *Running it* (settings table, where the DB lives, a shorter root/`setcap` section) → *Using the web UI* → *Exporting* → *Troubleshooting* (one table: `400 Invalid host header`, port in use, "only sees 172.17.x because you are inside Docker/WSL", nmap missing, macOS firewall) → a six-bullet *How it works* linking to the design docs. Stale facts fixed: "231 tests" → **241**, `winget install nmap` → the real package ID, and a `see Internals` cross-reference to a section that is no longer called that. Nothing factual was lost — the module-by-module detail it carried already lives in `docs/architecture.md`, now its single home. Falco then supplied a screenshot of the start screen with no scans done, now the header image (`docs/images/ui-empty-state.png`, 1356×792, 76 KB — the only real UI capture in the repo; it shows the subnet prefill, both scan buttons and the empty table, and no device names or MACs).
+- **Security hardening, PR 1 of 3** (branch `hermes/security-hardening`, this PR): the server-edge cluster from the 2026-11-26 review. **`*` in `NETSCOPE_ALLOWED_HOSTS` is now a startup error** — Starlette read it as allow-every-host, silently disabling the DNS-rebinding check (verified: `Host: evil.example.com` → 200 with `*`, 400 with a real list). **`NETSCOPE_MAX_TARGET_ADDRESSES`** (default **4096 = /20**) caps `validate_target`, so one request can no longer ask nmap to sweep `10.0.0.0/8` (16,777,216 addresses, XML buffered in RAM); the 400 names the override and a bad value is `Bad configuration:` at startup. **Security headers** on every response (CSP `default-src 'self'` + `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`) via a plain ASGI middleware inside the Host check, so static files and the CSV download are covered too — `'self'` is enough because the page has no inline script/style, confirmed in a real browser with a `securitypolicyviolation` listener (none, across reload + scan). **`/openapi.json` is gone** (`openapi_url=None`; `docs_url=None` alone left 7,889 bytes of schema). **nmap's stderr is logged, not returned** — `/api/scan/status` now says `nmap failed (exit N) — see the server log for the details` instead of echoing `/root/.nmap/scripts…`. **The DB and its WAL/SHM are `0600`** on POSIX (sqlite3 created them `0644` from the umask). 254 tests pass (13 new: 8 target, 3 API, 3 main-env, 1 runner, 1 store), ruff clean. Every new test proven RED against `main`: `7 failed, 206 passed, 1 error` — the error is the old `target.py` not exporting the new names; the others are `KeyError: 'content-security-policy'`, `assert 200 == 404` (openapi), `assert 200 == 400` (/8 scan), `DID NOT RAISE SystemExit`, and a stderr string leaking into the error message. Note: `ruff format --check` still reports `store.py`, `test_target_guard.py`, `test_main_env.py` — all three were already unformatted on `main` and were left alone.
 
 ## In progress
-- **Nothing is in progress.** #39 (#73), #74 (#75), #41 mDNS (#76), #41 NetBIOS
-  (#77), #79 (#80) and #43 export (#81) are all merged; **this PR only closes
-  the #43 paperwork and records that Docker + systemd are dropped.** One issue
-  is open: **#78** (verify mDNS/NetBIOS names on the home LAN — Falco does that
-  himself on Atlas).
+- **This PR** (`hermes/security-hardening`): the server-edge cluster from the
+  2026-11-26 security review — `*` refused in `NETSCOPE_ALLOWED_HOSTS`,
+  security headers (CSP `'self'`, `frame-ancestors 'none'`, `nosniff`,
+  `no-referrer`), `openapi_url=None`, the scan-size cap
+  (`NETSCOPE_MAX_TARGET_ADDRESSES`, default 4096), nmap stderr logged instead of
+  returned, and the DB + WAL/SHM at `0600`. Two more PRs follow: the NetBIOS
+  parser bound, then CI permissions + Dependabot. One issue is open: **#78**
+  (verify mDNS/NetBIOS names on the home LAN — Falco does that himself on Atlas).
 
-## Handoff state (2026-11-26, after #43 was closed — read this first)
-- `main` = `1c4b0ee` (squash of PR #82, #43 closed) **+ the squash-merge of this
-  PR** (`hermes/readme`, docs only). **No open PRs once it merges; nothing is in
-  progress.** The clone holds only `main`.
-- **The backlog is empty.** #30–#38 (Claude Code review) are CLOSED, the
-  "Bugfix backlog (code review #33-#38)" milestone is CLOSED, and **#43 is now
-  closed too** — export shipped, systemd unit and Docker image declined by
-  Falco (recorded in `docs/decisions.md`). **#40, #42 and #43 must not be
-  reopened on your own**; a change of mind is a new decision, not a resumption.
+## Handoff state (2026-11-27, mid-security-work — read this first)
+- `main` = `8adf50e` (squash of PR #84, README how/why) after #83 (README
+  rewrite) and #82 (#43 closed). The branch in flight is
+  `hermes/security-hardening` → PR for the server-edge hardening; nothing else
+  is open and no other branch exists.
+- **The idea backlog is still empty.** #30–#38 (Claude Code review) are CLOSED,
+  the "Bugfix backlog (code review #33-#38)" milestone is CLOSED, and **#43 is
+  closed** — export shipped, systemd unit and Docker image declined by Falco
+  (recorded in `docs/decisions.md`). **#40, #42 and #43 must not be reopened on
+  your own**; a change of mind is a new decision, not a resumption.
 - **The only open issue is #78**: verify mDNS + NetBIOS name discovery on the
   home LAN. It is blocked on Falco running one scan on Atlas (this container is
   on the Docker bridge and cannot see `192.168.0.0/24`); the issue body has the
   checklist of what to look for.
-- **Suite: 241 tests pass, ruff clean**; CI green on ubuntu-latest +
-  windows-latest × Python 3.12/3.13 (`.github/workflows/tests.yml`, added in
-  PR #66). This PR changes docs only — no code, no test count change.
+- **Security work runs in three PRs, one at a time** (Falco: "stop after each
+  PR and wait for my merge"): (1) `hermes/security-hardening` — the server edge,
+  this PR; (2) `hermes/netbios-bounds` — the 12-byte NBSTAT `IndexError` plus
+  re-validating discovered IPs before the service-pass argv; (3)
+  `hermes/ci-permissions` — `permissions: contents: read`, Dependabot, and the
+  doc-only rows (no auth by design, MACs are LAN-reported, the DB is a
+  sensitive inventory).
+- **Suite: 254 tests pass, ruff clean** (241 before this PR; 13 new).
+  `ruff format --check` reports `store.py`, `test_target_guard.py` and
+  `test_main_env.py` as unformatted — all three were already unformatted on
+  `main`, left untouched on purpose (no drive-by reformatting).
 - **Every feature is real-hardware-verified except name discovery**: export was
   verified against the real app in this container (real static files, API and
   store) with nmap faked from the repo fixtures; the mDNS resolver was verified
   against real multicast in this container; the NetBIOS client was verified
   over real UDP 137 against a scratch responder. **No name lookup has been
-  confirmed against real devices yet** — that is exactly what #78 is.
+  confirmed against real devices yet** — that is exactly what #78 is. The
+  security headers were verified in a real browser in this container: the UI
+  renders, a scan runs, and the `securitypolicyviolation` listener stayed empty
+  across a reload and a scan.
 - **A real fixture exists**: `tests/fixtures/home_lan_complete_2026-11-25.xml` —
   Falco's completed scan (12 hosts, nmap 7.80 on Windows, 599.73 s), MAC
   addresses mechanically redacted with `scripts/redact_mac_addresses.py`;
   provenance and both sha256s in `tests/fixtures/README.md`, the raw capture
   stays out of the repo.
 - **Schema is v4** (`scans.mode`); v1/v2/v3 databases upgrade in place. No
-  feature after #39 needed a schema change.
+  feature after #39 needed a schema change, and this PR changes no schema.
 - **Run path is unchanged and is the only supported one**: clone, `uv sync`,
   `uv run python -m netscope`. No Docker image, no systemd unit, no console
   script — do not propose them again as "unfinished work".
@@ -112,7 +131,8 @@ latest one is recorded as acceptance evidence on issue #10.
   #72 #34 OS hint → #73 quick vs deep (#39) → #75 per-device deep scan (#74) →
   #76 mDNS (#41) → #77 NetBIOS (closed #41) → #80 sudo docs (#79) → #81 export
   (2026-11-26, #43 part 1, merged) → #82 #43 closed, Docker + systemd declined →
-  this PR (2026-11-26, README rewritten for users, docs only).
+  #83 README rewrite → #84 README how/why → security hardening (2026-11-27,
+  this PR).
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
 1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (PR #72).
@@ -125,8 +145,14 @@ latest one is recorded as acceptance evidence on issue #10.
    worth it"; the systemd unit was declined earlier. #43 is closed.
 7. **#78 verify mDNS + NetBIOS names on the home LAN** — the only open item;
    Falco runs that scan himself on Atlas. See the issue for the checklist.
-8. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
-9. If a new idea appears, open a new issue — do not resurrect #40, #42 or #43.
+8. **Security review follow-ups (2026-11-27), one PR at a time, stop after each**:
+   ~~PR 1 — server edge (this PR)~~; **PR 2** `hermes/netbios-bounds` (bound
+   `parse_nbstat_response` so a 12-byte reply cannot raise, re-validate
+   discovered IPs before the service-pass argv); **PR 3**
+   `hermes/ci-permissions` (`permissions: contents: read`, Dependabot, doc rows
+   for "no auth by design", "MACs are LAN-reported", "the DB is sensitive").
+9. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
+10. If a new idea appears, open a new issue — do not resurrect #40, #42 or #43.
 
 ## Known issues and gotchas
 See `docs/gotchas.md` — the important ones: nmap's port attribute is `portid`;
@@ -147,15 +173,16 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 241 passed
+uv run pytest                 # 254 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
 `nmap` must be installed (`winget install nmap` on Windows). Env vars: `NETSCOPE_DB`,
-`NETSCOPE_HOST` (default `127.0.0.1`), `NETSCOPE_PORT` (8000), `NETSCOPE_NMAP_TIMEOUT` (300 s per pass).
+`NETSCOPE_HOST` (default `127.0.0.1`), `NETSCOPE_PORT` (8000), `NETSCOPE_NMAP_TIMEOUT` (300 s per pass),
+`NETSCOPE_MAX_TARGET_ADDRESSES` (4096 = `/20`).
 
 ## Open questions for the human
-- **None.** The fixture capture happened (#69: `tests/fixtures/home_lan_complete_2026-11-25.xml`, MACs redacted) and #34 is closed with its hint shipped. Every idea is now settled: #39/#41 shipped, **#43 closed** (export shipped; Docker image and systemd unit declined), #40 and #42 closed `not_planned`. The only thing left is the real-LAN name verification in **#78**, which Falco does himself.
+- **None for this PR.** The fixture capture happened (#69: `tests/fixtures/home_lan_complete_2026-11-25.xml`, MACs redacted) and #34 is closed with its hint shipped. #39/#41 shipped, **#43 closed** (export shipped; Docker image and systemd unit declined), #40 and #42 closed `not_planned`. The only product item left is the real-LAN name verification in **#78**, which Falco does himself; the security follow-ups are PR 2 (NetBIOS bound) and PR 3 (CI permissions) after this one merges.
 
 ## Resolved (2026-11-23, Falco ran in a regular PowerShell window on `hermes/device-naming`)
 - **M7/M8 evidence recorded**: scans of `192.168.0.0/24` show real port numbers, vendor labels, and manual names (`.250` shown as "Atom Homeserver") that survive re-scans; diff/absent confirmed (`.19` and `.7` appeared, Chromecast/TV disappeared). Posted to issues #10 and #23.

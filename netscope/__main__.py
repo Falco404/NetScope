@@ -18,6 +18,7 @@ from netscope.mdns import MdnsNameResolver
 from netscope.netbios import NetbiosNameResolver
 from netscope.scanner import NmapScanner, SubprocessNmapRunner
 from netscope.store import SQLiteStore
+from netscope.target import max_target_addresses
 from netscope.vendor_registry import MAC_PREFIXES_FILENAME, OUI_VENDORS, load_default_mac_prefixes
 
 
@@ -75,6 +76,9 @@ def main() -> None:
     try:
         port = parse_port(os.environ.get("NETSCOPE_PORT", "8000"))
         timeout = parse_timeout(os.environ.get("NETSCOPE_NMAP_TIMEOUT", "300"))
+        # The target-size limit is what stops one request from sweeping a /8;
+        # a bad override must fail here, not on the first scan.
+        max_addresses = max_target_addresses()
     except ValueError as exc:
         raise SystemExit(f"Bad configuration: {exc}") from None
     # #36: trusted Host header names. Loopback is always allowed; a LAN bind
@@ -83,6 +87,16 @@ def main() -> None:
     extra_hosts = [
         h.strip() for h in os.environ.get("NETSCOPE_ALLOWED_HOSTS", "").split(",") if h.strip()
     ]
+    if "*" in extra_hosts:
+        # Starlette reads "*" as "any host" — it would silently switch off the
+        # DNS-rebinding check, which is the only thing between a web page and
+        # the unauthenticated API. Refuse it instead of warning: an
+        # "Invalid host header" error is exactly when someone reaches for "*".
+        raise SystemExit(
+            "Bad configuration: NETSCOPE_ALLOWED_HOSTS must list the exact host "
+            "names clients use (e.g. 192.168.0.14,atom.local) — '*' disables the "
+            "Host header check and with it the DNS-rebinding defence"
+        )
     if host not in ("0.0.0.0", "127.0.0.1"):
         extra_hosts.append(host)
     # #38: prefer nmap's own MAC->vendor data file over the built-in table, so
@@ -118,6 +132,7 @@ def main() -> None:
         f"NetBIOS {'on' if netbios_enabled else 'off'}"
     )
     print(f"NetScope on http://{host}:{port}  (db: {store.path}, nmap timeout: {timeout}s)")
+    print(f"Largest scan target: {max_addresses} addresses (a /20 is 4096)")
     print(f"Trusted Host headers: {allowed}")
     uvicorn.run(
         build_app(api, extra_hosts=tuple(extra_hosts)),

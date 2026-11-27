@@ -659,3 +659,41 @@ def test_netbios_names_reach_the_device_table(tmp_path):
     assert devices["192.168.1.20"]["name"] == "DESKTOP-ABC123"
     assert devices["192.168.1.10"]["hostname"] is None  # NetBIOS did not name it
     store.close()
+
+
+# --- #security: response headers, hidden schema, bounded target ------------
+
+
+def test_security_headers_on_ui_api_and_export(tmp_path):
+    """The UI must not be framable (clickjacking would let a web page press
+    "Deep scan"), and the LAN-derived data must not be MIME-sniffed."""
+    client, _, store = make_client(tmp_path)
+    for path in ("/", "/api/devices", "/api/export?format=csv"):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        csp = response.headers["content-security-policy"]
+        assert "default-src 'self'" in csp, path
+        assert "frame-ancestors 'none'" in csp, path
+        assert response.headers["x-frame-options"] == "DENY", path
+        assert response.headers["x-content-type-options"] == "nosniff", path
+        assert response.headers["referrer-policy"] == "no-referrer", path
+    store.close()
+
+
+def test_openapi_schema_is_not_served(tmp_path):
+    """docs_url=None alone left /openapi.json exposing every route."""
+    client, _, store = make_client(tmp_path)
+    assert client.get("/docs").status_code == 404
+    assert client.get("/redoc").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
+    store.close()
+
+
+def test_target_over_the_size_limit_is_refused(tmp_path):
+    """One request must not ask nmap to sweep 10.0.0.0/8 (16.7M addresses)."""
+    client, api, store = make_client(tmp_path)
+    response = client.post("/api/scan", json={"target": "10.0.0.0/8", "mode": "quick"})
+    assert response.status_code == 400
+    assert "NETSCOPE_MAX_TARGET_ADDRESSES" in response.json()["detail"]
+    assert api.status()["state"] == "idle", "no scan may start"
+    store.close()

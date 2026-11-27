@@ -89,8 +89,9 @@ Settings are environment variables, all optional:
 | `NETSCOPE_DB` | `netscope.db` | SQLite database path |
 | `NETSCOPE_HOST` | `127.0.0.1` | Bind address; `0.0.0.0` exposes the UI on the LAN |
 | `NETSCOPE_PORT` | `8000` | HTTP port |
-| `NETSCOPE_ALLOWED_HOSTS` | *(empty)* | Extra `Host` header names to trust (comma-separated) |
+| `NETSCOPE_ALLOWED_HOSTS` | *(empty)* | Extra `Host` header names to trust (comma-separated; `*` is refused) |
 | `NETSCOPE_NMAP_TIMEOUT` | `300` | Seconds per nmap pass; a `/24` with silent hosts can take minutes |
+| `NETSCOPE_MAX_TARGET_ADDRESSES` | `4096` | Largest target you may scan (4096 = a `/20`); raise it for a bigger subnet |
 | `NETSCOPE_MDNS` | `1` | Name suggestions over mDNS; `0` turns the lookup off |
 | `NETSCOPE_NETBIOS` | `1` | NetBIOS workstation names (UDP 137); `0` turns the lookup off |
 
@@ -211,6 +212,8 @@ ports, services, names — only the OS column stays blank, and the UI says so.
 | What you see | What it means |
 |---|---|
 | `400 Invalid host header` | You opened the UI by an address it does not trust. Add that name to `NETSCOPE_ALLOWED_HOSTS` (and bind `NETSCOPE_HOST=0.0.0.0` if it is another device). |
+| `Bad configuration: NETSCOPE_ALLOWED_HOSTS must list the exact host names…` | You put `*` in the list. A wildcard would switch the Host check off, so it is refused — name the devices explicitly. |
+| `target '10.0.0.0/8' covers 16777216 addresses; the limit is 4096` | The subnet is bigger than the scan-size limit. Scan a smaller range (a `/20` or narrower) or raise `NETSCOPE_MAX_TARGET_ADDRESSES`. |
 | `[Errno 98] address already in use` (Windows: `10048`) | Something else owns port 8000 — set `NETSCOPE_PORT` to another port. |
 | A scan finds only `172.17.x`/`172.18.x` devices | You are running NetScope inside Docker or WSL, so it sees the container bridge, not your LAN. Run it on the host. |
 | `nmap binary 'nmap' not found` | nmap is not on `PATH`; install it and restart NetScope. |

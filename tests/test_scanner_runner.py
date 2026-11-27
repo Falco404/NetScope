@@ -48,3 +48,17 @@ def test_probe_os_false_when_run_fails():
 
     runner.run = _fail  # type: ignore[method-assign]
     assert runner.probe_os() is False
+
+
+def test_stderr_is_logged_not_reflected(caplog):
+    """nmap's stderr names absolute paths; the UI only gets the exit code."""
+    runner = SubprocessNmapRunner(binary=sys.executable)
+    script = "import sys; sys.stderr.write('/root/.nmap/scripts: boom'); raise SystemExit(3)"
+    with caplog.at_level("WARNING", logger="netscope.scanner.runner"):
+        with pytest.raises(RuntimeError) as exc:
+            runner.run(["-c", script])
+    message = str(exc.value)
+    assert "exit 3" in message
+    assert "/root/.nmap/scripts" not in message, "path must not reach the client string"
+    assert "see the server log" in message
+    assert "/root/.nmap/scripts" in caplog.text, "the full stderr must still be logged"

@@ -4,13 +4,24 @@ import ipaddress
 
 import pytest
 
-from netscope.target import IllegalTargetError, is_allowed, validate_target
+from netscope.target import (
+    MAX_TARGET_ADDRESSES_ENV,
+    IllegalTargetError,
+    is_allowed,
+    parse_max_addresses,
+    validate_target,
+)
+
+
+@pytest.fixture(autouse=True)
+def _shipped_defaults(monkeypatch):
+    """Run with the shipped limit whatever the developer's shell exports."""
+    monkeypatch.delenv(MAX_TARGET_ADDRESSES_ENV, raising=False)
 
 
 @pytest.mark.parametrize("target", [
     "10.0.0.1",
     "10.255.255.255",
-    "10.0.0.0/8",
     "10.5.6.0/24",
     "172.16.0.1",
     "172.31.255.255",
@@ -50,8 +61,8 @@ def test_refused_targets_raise(target):
 
 
 @pytest.mark.parametrize("target", [
-    "10.0.0.0/12",        # wholly inside 10/8
-    "172.16.0.0/16",      # wholly inside 172.16/12
+    "10.0.0.0/20",        # wholly inside 10/8
+    "172.16.0.0/21",      # wholly inside 172.16/12
 ])
 def test_cidr_fully_inside_allowed_range_passes(target):
     validate_target(target)
@@ -80,3 +91,45 @@ def test_non_string_target_refused():
     for bad in (None, 8, b"10.0.0.1", ["10.0.0.1"]):
         with pytest.raises(IllegalTargetError):
             validate_target(bad)  # pyright: ignore[reportArgumentType]
+
+
+# --- scan-size cap (one request must not sweep a /8) -----------------------
+
+
+def test_target_exactly_at_the_limit_passes():
+    # Default limit is 4096 addresses: a /20 is exactly that.
+    assert validate_target("192.168.0.0/20").num_addresses == 4096
+
+
+def test_target_one_bit_larger_is_refused():
+    with pytest.raises(IllegalTargetError) as exc:
+        validate_target("192.168.0.0/19")  # 8192 addresses
+    message = str(exc.value)
+    assert "8192" in message
+    assert MAX_TARGET_ADDRESSES_ENV in message, "the error must name the override"
+
+
+def test_10_slash_8_is_refused_by_default():
+    """The exact request from the security review: 16.7M addresses in one call."""
+    with pytest.raises(IllegalTargetError) as exc:
+        validate_target("10.0.0.0/8")
+    assert "16777216" in str(exc.value)
+
+
+def test_env_override_raises_the_limit(monkeypatch):
+    monkeypatch.setenv(MAX_TARGET_ADDRESSES_ENV, "8192")
+    validate_target("192.168.0.0/19")
+
+
+def test_env_override_can_lower_the_limit(monkeypatch):
+    monkeypatch.setenv(MAX_TARGET_ADDRESSES_ENV, "256")
+    validate_target("192.168.0.0/24")
+    with pytest.raises(IllegalTargetError):
+        validate_target("192.168.0.0/23")  # 512 addresses
+
+
+def test_parse_max_addresses_rejects_garbage():
+    for bad in ("abc", "0", "-5", "4.5", ""):
+        with pytest.raises(ValueError) as exc:
+            parse_max_addresses(bad)
+        assert MAX_TARGET_ADDRESSES_ENV in str(exc.value), bad
