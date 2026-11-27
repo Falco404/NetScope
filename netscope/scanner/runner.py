@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from typing import Protocol
 
 NMAP_TIMEOUT_SECONDS = 300
+
+logger = logging.getLogger(__name__)
 
 
 class NmapRunner(Protocol):
@@ -43,7 +46,14 @@ class SubprocessNmapRunner:
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"nmap timed out after {self.timeout}s") from None
         if proc.returncode != 0:
-            raise RuntimeError(f"nmap failed (exit {proc.returncode}): {proc.stderr.strip()}")
+            # The UI shows this string, so it carries the actionable part only:
+            # nmap's stderr names absolute paths (/root/.nmap/scripts, cached
+            # databases) and internal tool state. Full text goes to the log.
+            stderr = proc.stderr.strip()
+            logger.warning("nmap exited %s: %s", proc.returncode, stderr)
+            raise RuntimeError(
+                f"nmap failed (exit {proc.returncode}) — see the server log for the details"
+            )
         return proc.stdout
 
     def probe_os(self) -> bool:

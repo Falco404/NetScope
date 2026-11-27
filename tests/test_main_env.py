@@ -112,3 +112,46 @@ def test_main_starts_normally_with_valid_env(monkeypatch, tmp_path):
     main_module.main()
     assert started["port"] == 8123
     assert (tmp_path / "ok.db").exists()
+
+
+# --- #security: "*" must not switch the Host check off ---------------------
+
+
+def test_main_refuses_wildcard_allowed_hosts(monkeypatch, tmp_path):
+    """Starlette reads "*" as allow-every-host, which silently disables the
+    DNS-rebinding defence — and only the error message suggests trying it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NETSCOPE_DB", raising=False)
+    monkeypatch.setenv("NETSCOPE_ALLOWED_HOSTS", "192.168.0.14, *")
+    monkeypatch.setattr(main_module.uvicorn, "run", lambda *a, **k: None)
+    created: list[str] = []
+    monkeypatch.setattr(
+        main_module, "SQLiteStore", lambda *a, **k: created.append("store")
+    )
+    with pytest.raises(SystemExit) as exc:
+        main_module.main()
+    assert "NETSCOPE_ALLOWED_HOSTS" in str(exc.value)
+    assert "disables the Host" in str(exc.value)
+    assert created == [], "config must be rejected before the store exists"
+
+
+def test_main_accepts_explicit_allowed_hosts(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NETSCOPE_DB", str(tmp_path / "hosts.db"))
+    monkeypatch.setenv("NETSCOPE_ALLOWED_HOSTS", "192.168.0.14, atom.local")
+    started: dict[str, object] = {}
+    monkeypatch.setattr(
+        main_module.uvicorn, "run", lambda app, **kw: started.update(kw)
+    )
+    main_module.main()
+    assert started["port"] == 8000
+
+
+def test_main_rejects_bad_max_addresses(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("NETSCOPE_DB", raising=False)
+    monkeypatch.setenv("NETSCOPE_MAX_TARGET_ADDRESSES", "lots")
+    monkeypatch.setattr(main_module.uvicorn, "run", lambda *a, **k: None)
+    with pytest.raises(SystemExit) as exc:
+        main_module.main()
+    assert "NETSCOPE_MAX_TARGET_ADDRESSES" in str(exc.value)

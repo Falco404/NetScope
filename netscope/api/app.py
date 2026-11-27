@@ -19,7 +19,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from netscope.device import Device
 from netscope.export import filename as export_filename
@@ -37,6 +39,51 @@ STATIC_DIR = Path(__file__).parent / "static"
 # hostname with the port stripped and case-insensitively, and answers 400
 # "Invalid host header" on a mismatch.
 DEFAULT_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
+
+# Every response carries these. The UI has no inline script or style (one
+# <script src>, one <link rel=stylesheet>), so 'self' alone is enough:
+# * CSP is the safety net behind the #32 XSS fix — today every LAN-derived
+#   string is rendered with textContent, but a regression would have nothing
+#   to stop it. frame-ancestors also blocks clickjacking.
+# * X-Frame-Options is the same rule for browsers without CSP frame-ancestors.
+# * nosniff stops MIME confusion; no-referrer keeps URLs out of other origins.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
+        "form-action 'none'; frame-ancestors 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+class SecurityHeadersMiddleware:
+    """Stamp SECURITY_HEADERS onto every HTTP response.
+
+    Deliberately a plain ASGI middleware (not BaseHTTPMiddleware): it must not
+    buffer or re-wrap response bodies, and it has to cover static files and
+    the CSV download as well as the JSON routes.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in SECURITY_HEADERS.items():
+                    headers[name] = value
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
 
 # #34 (closed) optional polish: shown when the inventory has devices but not a
 # single OS guess, i.e. the OS column reads empty. Root is required for -O on
@@ -258,7 +305,14 @@ def _inventory_records(api: NetScopeAPI) -> list[dict[str, Any]]:
 
 
 def build_app(api: NetScopeAPI, extra_hosts: tuple[str, ...] = ()) -> FastAPI:
-    app = FastAPI(title="NetScope", docs_url=None, redoc_url=None)
+    # openapi_url=None: disabling the docs UI alone left `/openapi.json`
+    # serving the full route/parameter schema, which contradicts the intent.
+    app = FastAPI(title="NetScope", docs_url=None, redoc_url=None, openapi_url=None)
+    # Added BEFORE TrustedHostMiddleware on purpose: add_middleware prepends, so
+    # the LAST one registered is outermost. The Host check must stay outermost
+    # (a foreign Host never reaches a route) and the headers layer sits just
+    # inside it, covering every route, the static files and the CSV download.
+    app.add_middleware(SecurityHeadersMiddleware)
     # Outermost middleware: a foreign Host header never reaches a route, so
     # DNS rebinding cannot drive the unauthenticated localhost UI (#36).
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=[*DEFAULT_ALLOWED_HOSTS, *extra_hosts])

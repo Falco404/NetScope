@@ -190,8 +190,28 @@ class SQLiteStore:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA busy_timeout = 5000")
+        self._restrict_permissions()
         self._conns.append(conn)
         return conn
+
+    def _restrict_permissions(self) -> None:
+        """Make the DB (and its WAL sidecars) owner-only (#security).
+
+        The file is a ready-made target list — every MAC, IP, hostname, open
+        port and service version on the LAN — and sqlite3 creates it with the
+        process umask (0644 on the usual 022). Windows uses ACLs, and chmod
+        there only toggles the read-only bit, so this is POSIX-only.
+        """
+        if os.name != "posix":
+            return
+        path = os.fspath(self.path)
+        if not path or path == ":memory:" or path.startswith("file:"):
+            return
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                os.chmod(path + suffix, 0o600)
+            except FileNotFoundError:
+                pass  # sidecars appear once WAL mode has written something
 
     @property
     def conn(self) -> sqlite3.Connection:
