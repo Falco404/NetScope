@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from netscope.scanner.engine import NmapScanner
-from netscope.target import IllegalTargetError
+from netscope.scanner.engine import NmapScanner, service_pass_addresses
+from netscope.scanner.models import HostResult
+from netscope.target import IllegalTargetError, validate_target
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,6 +33,59 @@ def fake_runner() -> FakeRunner:
         (FIXTURES / "nmap_discovery.xml").read_text(),
         (FIXTURES / "nmap_service.xml").read_text(),
     )
+
+
+def discovery_with(*addresses: str) -> str:
+    """Minimal discovery XML: one up host per given <address addr> value.
+
+    Constructed, not captured: this is the hostile-input case (the point is an
+    address nmap would never write), so a real capture cannot exist for it.
+    """
+    hosts = "".join(
+        f'<host><status state="up"/><address addr="{addr}" addrtype="ipv4"/></host>'
+        for addr in addresses
+    )
+    return f"<nmaprun>{hosts}</nmaprun>"
+
+
+def test_discovered_addresses_are_revalidated_before_the_service_pass():
+    """#security: argv elements come out of a parsed document. An address that
+    is not plain IPv4 inside the scanned network must never reach nmap — a value
+    like `-oN/tmp/pwn` would be read as a flag by the second pass."""
+    runner = FakeRunner(
+        discovery_with("192.168.1.10", "-oN/tmp/pwn", "8.8.8.8", "192.168.1.007"),
+        (FIXTURES / "nmap_service.xml").read_text(),
+    )
+    NmapScanner(runner).scan("192.168.1.0/24")
+
+    assert runner.calls[1] == ["-sV", "-O", "-oX", "-", "192.168.1.10"]
+
+
+def test_no_usable_address_means_no_service_pass():
+    runner = FakeRunner(
+        discovery_with("-oN/tmp/pwn", "10.0.0.1"),  # one flag, one outside the target
+        (FIXTURES / "nmap_service.xml").read_text(),
+    )
+    result = NmapScanner(runner).scan("192.168.1.0/24")
+
+    assert len(runner.calls) == 1, "only the discovery pass may run"
+    assert result.hosts == ()
+
+
+def test_service_pass_addresses_keeps_order_and_drops_duplicates_never():
+    # A repeated address is passed through as-is: nmap dedupes, and silently
+    # dropping one would make the number of probed hosts disagree with the UI.
+    hosts = [
+        HostResult(ip="192.168.1.20", up=True),
+        HostResult(ip="192.168.1.10", up=True),
+        HostResult(ip="192.168.1.20", up=True),
+    ]
+    net = validate_target("192.168.1.0/24")
+    assert service_pass_addresses(hosts, net) == [
+        "192.168.1.20",
+        "192.168.1.10",
+        "192.168.1.20",
+    ]
 
 
 def test_two_pass_flow():

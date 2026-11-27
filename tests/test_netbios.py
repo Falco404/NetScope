@@ -160,3 +160,51 @@ def test_resolver_with_no_hosts_opens_no_socket():
         raise AssertionError("must not create a socket without hosts")
 
     assert NetbiosNameResolver(sock_factory=factory).names_by_ip([]) == {}
+
+
+# --- hostile replies must never raise (one device must not kill the scan) ---
+
+
+def test_twelve_byte_reply_is_rejected_not_raised():
+    """The exact bug from the security review: only `len(data) < 12` was
+    checked, so the label-length byte read raised IndexError, the exception
+    escaped `_query`, and `_netbios_names`' broad except turned it into "no
+    names at all" for every host in the scan."""
+    packet = b"\x13\x37\x84\x00\x00\x00\x00\x01\x00\x00\x00\x00"  # 12-byte header only
+    assert parse_nbstat_response(packet) is None
+
+
+def test_label_length_past_the_end_is_rejected():
+    packet = struct.pack(">HHHHHH", TRANSACTION_ID, 0x8400, 0, 1, 0, 0) + b"\xc8"
+    assert parse_nbstat_response(packet) is None
+
+
+def test_parse_never_raises_on_any_truncation():
+    """Every prefix of a valid answer, including one that ends exactly on the
+    header — a property test, because the parser reads eight variable-length
+    offsets and each one is a place to overrun."""
+    full = nbstat_response(TYPICAL)
+    for length in range(len(full) + 1):
+        result = parse_nbstat_response(full[:length])
+        assert result is None or isinstance(result, str), length
+
+
+def test_one_hostile_host_does_not_lose_the_others_names():
+    """The impact, not just the exception: a 12-byte reply from one device
+    made `names_by_ip` return {} for the whole subnet."""
+    replies = {
+        "192.168.0.10": b"\x13\x37\x84\x00\x00\x00\x00\x01\x00\x00\x00\x00",
+        "192.168.0.11": nbstat_response(TYPICAL),
+    }
+    made: list[FakeSock] = []
+
+    def factory(*_a, **_k):
+        # The factory cannot know the destination, so route by call order is
+        # unsafe; instead return a socket per address using the sendto address.
+        sock = FakeSock()
+        sock.recvfrom = lambda _size: (replies[sock.sent[-1][1][0]], ("", 137))
+        made.append(sock)
+        return sock
+
+    names = NetbiosNameResolver(sock_factory=factory).names_by_ip(list(replies))
+    assert names == {"192.168.0.11": "WINDOWS2003"}
