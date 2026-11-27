@@ -10,10 +10,10 @@ user-facing doc (#27, Windows/Linux/macOS). Falco considers the project
 also shipped; #40 and #42 were closed as `not_planned` by Falco.
 **#43 is closed** (2026-11-26): the CSV + JSON export shipped (PR #81); the
 systemd unit and the Docker image were declined by Falco, so #78 is the only
-open item. **Security hardening is in progress** (2026-11-27): a third-party
-review's findings are being worked off in three PRs — the server edge (PR #85,
-merged), the NetBIOS parser bound + service-pass address re-validation (this
-PR), then CI permissions. 261 tests pass, ruff clean.
+open item. **Security hardening is complete** (2026-11-27): the third-party
+review's findings were worked off in three PRs — #85 (server edge), #86
+(NetBIOS parser bound + argv re-validation) and this PR (CI least privilege,
+Dependabot, and the documentation-only items). 263 tests pass, ruff clean.
 The tool has produced real scans of the home LAN (`192.168.0.0/24`); the
 latest one is recorded as acceptance evidence on issue #10.
 
@@ -70,23 +70,23 @@ latest one is recorded as acceptance evidence on issue #10.
 - **#43 closed — Docker image and systemd unit declined** (PR #82, merged 2026-11-26, docs only): Falco merged the export (#81), then dropped the other two items ("the docker image seems to be too much work and not worth it"), so **#43 is closed and nothing is left in the backlog**. The reasoning is recorded in `docs/decisions.md`: the image would need `--network host` (unreliable on Windows, so Apollo-only), container capabilities or `setcap`, a data volume, a second CI job and a compose file — to reach what `uv run python -m netscope` already does on the same machine, and unverifiable from this agent container (no Docker daemon, no LAN in CI). Nothing was built, so nothing needs maintaining. Reopening it means a fresh decision, not a resumption.
 - **README rewritten for users** (PR #83, docs only): the README was still organised like a developer log — setup separate from running, a 45-line root/capability essay sitting between "run it" and "use it", an archaeology paragraph about a `uv sync --extra dev` flag that no longer exists, and a "How it works" list that duplicated `docs/architecture.md` bullet for bullet. It now goes *what it is* → what you need → a copy-paste quick start per OS (Windows first, with the real winget IDs `astral-sh.uv` and `Insecure.Nmap`) → *Running it* (settings table, where the DB lives, a shorter root/`setcap` section) → *Using the web UI* → *Exporting* → *Troubleshooting* (one table: `400 Invalid host header`, port in use, "only sees 172.17.x because you are inside Docker/WSL", nmap missing, macOS firewall) → a six-bullet *How it works* linking to the design docs. Stale facts fixed: "231 tests" → **241**, `winget install nmap` → the real package ID, and a `see Internals` cross-reference to a section that is no longer called that. Nothing factual was lost — the module-by-module detail it carried already lives in `docs/architecture.md`, now its single home. Falco then supplied a screenshot of the start screen with no scans done, now the header image (`docs/images/ui-empty-state.png`, 1356×792, 76 KB — the only real UI capture in the repo; it shows the subnet prefill, both scan buttons and the empty table, and no device names or MACs).
 - **Security hardening, PR 1 of 3** (branch `hermes/security-hardening`, PR #85, merged 2026-11-27): the server-edge cluster from the 2026-11-26 review. **`*` in `NETSCOPE_ALLOWED_HOSTS` is now a startup error** — Starlette read it as allow-every-host, silently disabling the DNS-rebinding check (verified: `Host: evil.example.com` → 200 with `*`, 400 with a real list). **`NETSCOPE_MAX_TARGET_ADDRESSES`** (default **4096 = /20**) caps `validate_target`, so one request can no longer ask nmap to sweep `10.0.0.0/8` (16,777,216 addresses, XML buffered in RAM); the 400 names the override and a bad value is `Bad configuration:` at startup. **Security headers** on every response (CSP `default-src 'self'` + `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`) via a plain ASGI middleware inside the Host check, so static files and the CSV download are covered too — `'self'` is enough because the page has no inline script/style, confirmed in a real browser with a `securitypolicyviolation` listener (none, across reload + scan). **`/openapi.json` is gone** (`openapi_url=None`; `docs_url=None` alone left 7,889 bytes of schema). **nmap's stderr is logged, not returned** — `/api/scan/status` now says `nmap failed (exit N) — see the server log for the details` instead of echoing `/root/.nmap/scripts…`. **The DB and its WAL/SHM are `0600`** on POSIX (sqlite3 created them `0644` from the umask). 254 tests pass (13 new: 8 target, 3 API, 3 main-env, 1 runner, 1 store), ruff clean. Every new test proven RED against `main`: `7 failed, 206 passed, 1 error` — the error is the old `target.py` not exporting the new names; the others are `KeyError: 'content-security-policy'`, `assert 200 == 404` (openapi), `assert 200 == 400` (/8 scan), `DID NOT RAISE SystemExit`, and a stderr string leaking into the error message. Note: `ruff format --check` still reports `store.py`, `test_target_guard.py`, `test_main_env.py` — all three were already unformatted on `main` and were left alone.
-- **Security hardening, PR 2 of 3** (branch `hermes/netbios-bounds`, this PR): the two parser/argv findings. **NS-07** — `parse_nbstat_response` checked only `len(data) < 12` and then read `data[12]`, so one device answering a 12-byte UDP packet raised `IndexError`; it escaped `_query`, crossed `ThreadPoolExecutor.map`, and `_netbios_names`' broad `except Exception` turned it into `{}` — *every* NetBIOS name in that scan silently vanished. The guard is now `len(data) < 13`, every later offset was already bounds-checked, and `test_parse_never_raises_on_any_truncation` feeds every prefix of a valid answer. **NS-11** — the `-sV` pass got `h.ip` straight from the parsed document; `service_pass_addresses()` now re-parses each address, requires it inside the scanned network, and re-serialises it, so an `<address addr="-oN/tmp/x">` can never become an nmap flag (`192.168.1.007` is dropped too instead of guessed). 261 tests pass (7 new: 4 netbios, 3 engine), ruff clean; all new behaviour proven RED against `main` (`IndexError: index out of range` at `netscope/netbios.py:82` in three tests, plus the engine module failing to import the new helper).
+- **Security hardening, PR 2 of 3** (branch `hermes/netbios-bounds`, PR #86, merged 2026-11-27): **NS-07** — `parse_nbstat_response` checked only `len(data) < 12` and then read `data[12]`, so one device answering a 12-byte UDP packet raised `IndexError`; it escaped `_query`, crossed `ThreadPoolExecutor.map`, and `_netbios_names`' broad `except Exception` turned it into `{}` — every NetBIOS name in that scan silently vanished. The guard is now `len(data) < 13` (every later offset was already bounds-checked) and `test_parse_never_raises_on_any_truncation` feeds every prefix of a valid answer. **NS-11** — the `-sV` pass got `h.ip` straight from the parsed document; `service_pass_addresses()` re-parses each address, requires it inside the scanned network and re-serialises it, so an `<address addr="-oN/tmp/x">` can never become an nmap flag (`192.168.1.007` is dropped too, not guessed). 261 tests pass (7 new: 4 netbios, 3 engine); proven RED against `main` (`IndexError` at `netscope/netbios.py:82` in three tests, plus the engine module failing to import the new helper).
+- **Security hardening, PR 3 of 3** (branch `hermes/ci-permissions`, this PR): the CI + documentation findings. `permissions: contents: read` at workflow level (the job used to inherit the repository default token, which both actions run under); `.github/dependabot.yml` watching **`uv`** (the ecosystem that updates `uv.lock`, which is what CI installs from — `pip` cannot) and **`github-actions`**, weekly with a 5-PR cap. SHA pinning was declined by Falco: it also freezes the actions out of Dependabot's updates, and a read-only token takes away what a stolen tag would get. `tests/test_ci.py` gained two guards (permissions block present and no `contents: write`/`write-all`; dependabot.yml exists with both ecosystems), both proven RED with the workflow stashed and `dependabot.yml` moved aside. Docs: the README now states that the Host check is a DNS-rebinding defence and **not access control**, and that names/MACs are device-reported and unauthenticated — the NS-01/NS-10/NS-16 items, which are documentation, not code. **No auth was added**: that question stays deferred (`docs/decisions.md`, 2026-11-23 row). 263 tests pass (2 new), ruff clean.
 
 ## In progress
-- **This PR** (`hermes/netbios-bounds`): security review findings NS-07 and
-  NS-11. `parse_nbstat_response` now returns `None` for a reply shorter than 13
-  bytes instead of raising `IndexError` (a single 12-byte UDP packet from one
-  device used to wipe every NetBIOS name in that scan, silently), and the
-  discovery addresses handed to the `-sV` pass go through
-  `service_pass_addresses()` — re-parsed, required inside the scanned network,
-  re-serialised — because they come out of a parsed document, not out of nmap.
-  PR 3 (`hermes/ci-permissions`) follows. One issue is open: **#78** (verify
+- **This PR** (`hermes/ci-permissions`): the last three review findings.
+  `permissions: contents: read` on the workflow; `.github/dependabot.yml`
+  watching `uv` (lock file) and `github-actions` weekly, max 5 PRs each; and
+  the documentation-only items — the README now says the Host check is a
+  DNS-rebinding defence and not access control, and that names/MACs are
+  device-reported and unauthenticated (no auth code: the auth question stays
+  deferred, see `docs/decisions.md`). One issue is open: **#78** (verify
   mDNS/NetBIOS names on the home LAN — Falco does that himself on Atlas).
 
-## Handoff state (2026-11-27, mid-security-work — read this first)
-- `main` = `3e03bc4` (squash of PR #85, security hardening PR 1; #84 was the
-  README how/why). The branch in flight is `hermes/netbios-bounds` → security
-  PR 2; nothing else is open and no other branch exists.
+## Handoff state (2026-11-27, after the security work — read this first)
+- `main` = `693986b` (squash of PR #86) after #85 (server edge) and #84/#83
+  (README). The branch in flight is `hermes/ci-permissions` → security PR 3 —
+  the last one; nothing else is open and no other branch exists.
 - **The idea backlog is still empty.** #30–#38 (Claude Code review) are CLOSED,
   the "Bugfix backlog (code review #33-#38)" milestone is CLOSED, and **#43 is
   closed** — export shipped, systemd unit and Docker image declined by Falco
@@ -96,14 +96,17 @@ latest one is recorded as acceptance evidence on issue #10.
   home LAN. It is blocked on Falco running one scan on Atlas (this container is
   on the Docker bridge and cannot see `192.168.0.0/24`); the issue body has the
   checklist of what to look for.
-- **Security work runs in three PRs, one at a time** (Falco: "stop after each
-  PR and wait for my merge"): (1) `hermes/security-hardening` — the server edge,
-  merged as #85; (2) `hermes/netbios-bounds` — the 12-byte NBSTAT `IndexError`
-  plus re-validating discovered IPs before the service-pass argv, this PR; (3)
-  `hermes/ci-permissions` — `permissions: contents: read`, Dependabot, and the
-  doc-only rows (no auth by design, MACs are LAN-reported, the DB is a
-  sensitive inventory).
-- **Suite: 261 tests pass, ruff clean** (254 before this PR; 7 new).
+- **Security work is done — three PRs, merged one at a time** (Falco: "stop
+  after each PR and wait for my merge"): (1) `hermes/security-hardening` — the
+  server edge, #85; (2) `hermes/netbios-bounds` — the 12-byte NBSTAT
+  `IndexError` plus re-validating discovered IPs before the service-pass argv,
+  #86; (3) `hermes/ci-permissions` — `permissions: contents: read`, Dependabot,
+  and the doc-only rows (Host check is not auth, MACs are LAN-reported, the DB
+  is a sensitive inventory), this PR. **The review's code items are all
+  closed.** What deliberately was *not* done: authentication (still deferred),
+  MAC-spoofing detection (nothing stronger than ARP exists), SHA-pinning the
+  actions (Falco's call — it would freeze Dependabot's action updates).
+- **Suite: 263 tests pass, ruff clean** (261 before this PR; 2 new).
   `ruff format --check` reports `store.py`, `test_target_guard.py` and
   `test_main_env.py` as unformatted — all three were already unformatted on
   `main`, left untouched on purpose (no drive-by reformatting).
@@ -132,8 +135,9 @@ latest one is recorded as acceptance evidence on issue #10.
   #72 #34 OS hint → #73 quick vs deep (#39) → #75 per-device deep scan (#74) →
   #76 mDNS (#41) → #77 NetBIOS (closed #41) → #80 sudo docs (#79) → #81 export
   (2026-11-26, #43 part 1, merged) → #82 #43 closed, Docker + systemd declined →
-  #83 README rewrite → #84 README how/why → #85 security hardening PR 1
-  (2026-11-27) → security PR 2 (this PR, NetBIOS bound + argv re-validation).
+  #83 README rewrite → #84 README how/why → #85 security hardening PR 1 →
+  #86 security PR 2 (NetBIOS bound + argv re-validation) → security PR 3
+  (this PR, CI permissions + Dependabot + doc rows) — all 2026-11-27.
 
 ## Next steps (in order, agreed with Falco 2026-11-25)
 1. ~~Optional polish from closed #34: graceful hint when `-O` yields no OS data~~ — **done** (PR #72).
@@ -146,12 +150,12 @@ latest one is recorded as acceptance evidence on issue #10.
    worth it"; the systemd unit was declined earlier. #43 is closed.
 7. **#78 verify mDNS + NetBIOS names on the home LAN** — the only open item;
    Falco runs that scan himself on Atlas. See the issue for the checklist.
-8. **Security review follow-ups (2026-11-27), one PR at a time, stop after each**:
-   ~~PR 1 — server edge (PR #85, merged)~~; **PR 2** `hermes/netbios-bounds`
-   (this PR: `parse_nbstat_response` bounded so a 12-byte reply cannot raise;
-   `service_pass_addresses()` re-validates the argv addresses); **PR 3**
-   `hermes/ci-permissions` (`permissions: contents: read`, Dependabot, doc rows
-   for "no auth by design", "MACs are LAN-reported", "the DB is sensitive").
+8. **Security review follow-ups (2026-11-27)** — **all three PRs shipped**:
+   ~~PR 1 server edge (PR #85)~~, ~~PR 2 NetBIOS bound + `service_pass_addresses()`
+   (PR #86)~~, ~~PR 3 CI `permissions: contents: read` + Dependabot + the doc
+   rows (this PR)~~. Remaining review items are deliberate non-fixes:
+   authentication (deferred, see decisions), MAC spoofing (nothing stronger than
+   ARP), SHA-pinned actions (would freeze Dependabot's updates).
 9. Docs upkeep in every PR (AGENTS.md rule): README, `docs/architecture.md`, `docs/gotchas.md`, `docs/STATUS.md`, `docs/decisions.md`.
 10. If a new idea appears, open a new issue — do not resurrect #40, #42 or #43.
 
@@ -174,7 +178,7 @@ Windows (PowerShell, in `C:\Users\Falco\Projects\NetScope`):
 git fetch origin
 git pull --ff-only            # on main
 uv sync
-uv run pytest                 # 261 passed
+uv run pytest                 # 263 passed
 uv run ruff check .           # clean
 uv run python -m netscope     # http://127.0.0.1:8000
 ```
@@ -183,7 +187,7 @@ uv run python -m netscope     # http://127.0.0.1:8000
 `NETSCOPE_MAX_TARGET_ADDRESSES` (4096 = `/20`).
 
 ## Open questions for the human
-- **None for this PR.** The fixture capture happened (#69: `tests/fixtures/home_lan_complete_2026-11-25.xml`, MACs redacted) and #34 is closed with its hint shipped. #39/#41 shipped, **#43 closed** (export shipped; Docker image and systemd unit declined), #40 and #42 closed `not_planned`. The only product item left is the real-LAN name verification in **#78**, which Falco does himself; the security follow-ups are PR 2 (NetBIOS bound) and PR 3 (CI permissions) after this one merges.
+- **None blocking.** The fixture capture happened (#69: `tests/fixtures/home_lan_complete_2026-11-25.xml`, MACs redacted) and #34 is closed with its hint shipped. #39/#41 shipped, **#43 closed** (export shipped; Docker image and systemd unit declined), #40 and #42 closed `not_planned`, and the security review's code items are closed by #85/#86/this PR. The only product item left is the real-LAN name verification in **#78**, which Falco does himself. Open by design, not by omission: **authentication** (deferred since 2026-11-23 — localhost bind is the mitigation) and **SHA-pinned CI actions** (declined; it would freeze Dependabot's action updates).
 
 ## Resolved (2026-11-23, Falco ran in a regular PowerShell window on `hermes/device-naming`)
 - **M7/M8 evidence recorded**: scans of `192.168.0.0/24` show real port numbers, vendor labels, and manual names (`.250` shown as "Atom Homeserver") that survive re-scans; diff/absent confirmed (`.19` and `.7` appeared, Chromecast/TV disappeared). Posted to issues #10 and #23.

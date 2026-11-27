@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
 
+# Least privilege (security review NS-13): the suite only reads the checkout.
+# Without this block the job inherits the repository default for GITHUB_TOKEN,
+# which is often read/write — and third-party actions run with that token.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: test / ${{ matrix.os }} / Python ${{ matrix.python-version }}

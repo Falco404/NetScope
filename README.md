@@ -109,8 +109,17 @@ and add the address that device types in its browser to
 `localhost`, `127.0.0.1`, and the names you list — anything else gets
 `400 Invalid host header`, which is what stops a malicious page from driving
 the scanner. `0.0.0.0` is a bind address and never arrives as a `Host` header,
-so listing it does not help. There is no login: keep the UI on localhost
-unless you trust everything on that network.
+so listing it does not help; `*` is refused at startup for the same reason.
+There is no login: **the Host check is a DNS-rebinding defence, not access
+control** — anyone who can reach the port can read the inventory and start
+scans. Keep the UI on localhost unless you trust everything on that network.
+
+**What the data itself is worth.** Device names, MAC addresses, vendors and OS
+guesses are *reported by the devices* (PTR, mDNS, NetBIOS, nmap) and are not
+authenticated — a device can claim another's MAC or name. Treat the inventory
+as a convenience map, not as evidence of identity, and do not use it for access
+decisions. The database is that map in one file: it stays local, is created
+owner-only on Linux/macOS, and should not be shared.
 
 ## Using the web UI
 
